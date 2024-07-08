@@ -1,11 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
 
+import './tcp_request.dart';
+import './command.dart';
+import 'body_type.dart';
+import 'method.dart';
+
 const _udpPort = 1101;
 const _tcpPort = 1102;
-final _clients = List.empty(growable: true);
-
-bool _isBrodcastReceived = false;
+const _headers = 'headers';
+const _body = 'body';
+const _maxClientSize = 1;
+var _sockets = List<Socket>.empty(growable: true);
 
 void main(List<String> args) async {
   final ip = await findMyIp() ?? InternetAddress.loopbackIPv4;
@@ -30,7 +36,7 @@ void _brodcastServerIp(InternetAddress ip) {
     udpSocket.broadcastEnabled = true;
     final message = '${ip.address}:$_tcpPort';
     final data = utf8.encode(message);
-    while (!_isBrodcastReceived) {
+    while (!_isAllClientConnected()) {
       udpSocket.send(data, InternetAddress('255.255.255.255'), _udpPort);
       print('$message sent');
       await Future.delayed(const Duration(seconds: 1));
@@ -40,70 +46,159 @@ void _brodcastServerIp(InternetAddress ip) {
 
 void _startListen(InternetAddress ip) async {
   final socket = await ServerSocket.bind(ip, _tcpPort);
-  socket.listen(_listen);
+  socket.listen((event) => _listen(event, ip));
   print('listening on $ip:$_tcpPort');
 }
 
-void _listen(Socket socket) {
-  print('client ip: ${socket.remoteAddress.address}:${socket.remotePort}');
-  _clients.add('${socket.remoteAddress.address}:${socket.remotePort}');
-  socket.listen((event) {
-    final message = utf8.decode(event);
-    final jsonMessage = json.decode(message);
-    _handleMessage(jsonMessage, socket);
-  });
-}
+bool _isAllClientConnected() => _sockets.length >= _maxClientSize;
 
-void _handleMessage(Map<String, dynamic> data, Socket socket) {
-  final headers = data['headers'];
-  final body = data['body'];
-  switch (headers['method']) {
-    case 'AUTHENTICATION':
-      _handleAuthentication(body, socket);
-      break;
-    case 'ACK':
-      _handleAck(body, socket);
-      break;
-  }
-}
-
-void _handleAuthentication(dynamic body, Socket socket) async {
-  _isBrodcastReceived = true;
-  await Future.delayed(const Duration(seconds: 5));
-  final headers = {
-    'method': 'COMMAND',
-  };
-  final body = {
-    'commandType': 'START_RECORD',
-  };
-  final message = json.encode({
-    'headers': headers,
-    'body': body,
-  });
-  _sendMessage(socket, message);
-  print('send start record command');
-}
-
-void _handleAck(dynamic body, Socket socket) async {
-  final commandType = body['commandType'];
-  if (commandType == 'START_RECORD') {
-    await Future.delayed(const Duration(seconds: 5));
-    final headers = {
-      'method': 'COMMAND',
-    };
-    final body = {
-      'commandType': 'STOP_RECORD',
-    };
-    final message = json.encode({
-      'headers': headers,
-      'body': body,
+void _listen(Socket socket, InternetAddress ip) {
+  if (ip.address != socket.remoteAddress.address) {
+    _sockets.add(socket);
+    socket.listen((event) {
+      final message = utf8.decode(event);
+      print('Message recieved: $message');
+      final jsonValue = json.decode(message);
+      print('Json Message recieved: $jsonValue');
+      final body = jsonValue[_body];
+      final headers = jsonValue[_headers];
+      print('body type is ${body.runtimeType}');
+      final request = TCPRequest(
+        body: body is Map<String, dynamic>
+            ? body
+            : body is List
+                ? body.map((e) => e as int).toList()
+                : null,
+        headers: headers,
+      );
+      _handleMessage(request);
     });
-    _sendMessage(socket, message);
-    print('send stop record command');
+    if (_isAllClientConnected()) {
+      Future.delayed(const Duration(seconds: 2)).then((_) {
+        final message = {
+          'headers': {
+            'method': Method.command.stringValue,
+            'bodyType': BodyType.json.stringValue,
+          },
+          'body': {
+            'commandType': Command.startRecording.stringValue,
+          },
+        };
+        _sendToAllMessage(json.encode(message));
+      });
+    }
+  }
+  // if (_sockets.any((e) =>
+  //     '${e.address.address}:${e.port}' ==
+  //     '${socket.address.address}:${socket.port}')) {
+
+  //     }
+  print('client ip: ${socket.remoteAddress.address}:${socket.remotePort}');
+}
+
+void _handleMessage(TCPRequest request) {
+  final method = request.method;
+  final bodyType = request.bodyType;
+  switch (method) {
+    case Method.command:
+      switch (bodyType) {
+        case BodyType.file:
+          break;
+        case BodyType.json:
+          final command = Command.fromJson(
+              (request.body as Map<String, dynamic>)['commandType']);
+          _handleCommand(command);
+          break;
+        case BodyType.unknown:
+          break;
+      }
+      break;
+    case Method.sendFile:
+      final file =
+          File('${Directory.current.path}/${request.headers['fileName']}');
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+      file.createSync();
+      file.writeAsBytesSync(request.body as List<int>);
+      print(file.path);
+      break;
+    case Method.authentication:
+      break;
+    case Method.unknown:
+      break;
   }
 }
 
-void _sendMessage(Socket socket, String message) {
+void _handleCommand(Command command) {
+  switch (command) {
+    case Command.startRecording:
+      Future.delayed(const Duration(seconds: 5)).then((value) {
+        final message = {
+          'headers': {
+            'method': Method.command.stringValue,
+            'bodyType': BodyType.json.stringValue,
+          },
+          'body': {
+            'commandType': Command.stopRecording.stringValue,
+          },
+        };
+        _sendToAllMessage(json.encode(message));
+      });
+      break;
+    case Command.stopRecording:
+      break;
+    case Command.sendVideo:
+      break;
+    case Command.unknown:
+      break;
+  }
+}
+
+// void _handleAuthentication(dynamic body, Socket socket) async {
+//   _isBrodcastReceived = true;
+//   await Future.delayed(const Duration(seconds: 5));
+//   final headers = {
+//     'method': 'COMMAND',
+//   };
+//   final body = {
+//     'commandType': 'START_RECORD',
+//   };
+//   final message = json.encode({
+//     'headers': headers,
+//     'body': body,
+//   });
+//   _sendMessage(socket, message);
+//   print('send start record command');
+// }
+
+// void _handleAck(dynamic body, Socket socket) async {
+//   final commandType = body['commandType'];
+//   if (commandType == 'START_RECORD') {
+//     await Future.delayed(const Duration(seconds: 5));
+//     final headers = {
+//       'method': 'COMMAND',
+//     };
+//     final body = {
+//       'commandType': 'STOP_RECORD',
+//     };
+//     final message = json.encode({
+//       'headers': headers,
+//       'body': body,
+//     });
+//     _sendMessage(socket, message);
+//     print('send stop record command');
+//   }
+// }
+
+// void _sendMessage(Socket socket, String message) {
+//   final data = utf8.encode(message);
+//   socket.add(data);
+// }
+
+void _sendToAllMessage(String message) {
   final data = utf8.encode(message);
-  socket.add(data);
+  for (var socket in _sockets) {
+    socket.add(data);
+  }
 }
