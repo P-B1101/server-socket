@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -46,7 +47,6 @@ void _brodcastServerIp(InternetAddress ip) {
 void _bind(InternetAddress ip) async {
   final socket = await ServerSocket.bind(ip, _tcpPort);
   socket.listen((event) {
-    if (_isAllClientConnected()) return;
     final id = '${event.remoteAddress.address}:${event.remotePort}';
     final handler = SocketHandler(
       id: id,
@@ -61,27 +61,26 @@ void _bind(InternetAddress ip) async {
 
 bool _isAllClientConnected() => _handlers.length >= _maxClientSize;
 
-void _handleStartTestProcess() {
+void _handleStartTestProcess() async {
   if (_isAllClientConnected()) {
-    Future.delayed(const Duration(seconds: 2)).then((_) async {
-      await _sendToAllMessage(ClientCommand.startRecording.stringValue);
-    });
+    await Future.delayed(const Duration(seconds: 2));
+    await _sendToAllMessage(ClientCommand.startRecording.stringValue);
   }
 }
 
-void _handleMessage(TCPRequest request) {
+Future<void> _handleMessage(TCPRequest request) async {
   final body = request.body;
   if (body is String) {
-    _handleStringMessage(body);
+    await _handleStringMessage(body);
     return;
   }
   if (body is Uint8List) {
-    _handleFileMessage(body);
+    await _handleFileMessage(body);
     return;
   }
 }
 
-void _handleStringMessage(String body) {
+Future<void> _handleStringMessage(String body) async {
   final clientCommand = ClientCommand.fromString(body);
   switch (clientCommand) {
     case ClientCommand.startRecording:
@@ -101,7 +100,7 @@ void _handleStringMessage(String body) {
   }
 }
 
-void _handleFileMessage(Uint8List body) {
+Future<void> _handleFileMessage(Uint8List body) async {
   if (body.isEmpty) return;
   final name = '${DateTime.now().millisecondsSinceEpoch.toString()}.mp4';
   final path = Directory.current.path;
@@ -113,6 +112,7 @@ void _handleFileMessage(Uint8List body) {
 
 Future<void> _sendToAllMessage(Object message) async {
   for (var handler in _handlers.values) {
+    await Future.delayed(const Duration(milliseconds: 500));
     if (message is File) {
       await handler.sendFile(message);
       continue;

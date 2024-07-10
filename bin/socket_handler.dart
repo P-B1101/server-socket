@@ -8,7 +8,7 @@ import 'request/tcp_command.dart';
 
 final class SocketHandler {
   final String id;
-  final void Function(TCPRequest) onReceived;
+  final Future<void> Function(TCPRequest) onReceived;
   final void Function(String id) onDisconnect;
   SocketHandler({
     required this.id,
@@ -99,7 +99,7 @@ final class SocketHandler {
     }
   }
 
-  void _handleEOM() {
+  void _handleEOM() async {
     final TCPRequest request;
     if (_isFile) {
       request = TCPRequest(body: _bytes, command: TCPCommand.sendFile);
@@ -109,7 +109,7 @@ final class SocketHandler {
         command: TCPCommand.sendMessage,
       );
     }
-    onReceived(request);
+    await onReceived(request);
     _bytes.clear();
     _command = null;
   }
