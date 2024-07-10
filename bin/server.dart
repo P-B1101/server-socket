@@ -46,6 +46,7 @@ void _brodcastServerIp(InternetAddress ip) {
 void _bind(InternetAddress ip) async {
   final socket = await ServerSocket.bind(ip, _tcpPort);
   socket.listen((event) {
+    if (_isAllClientConnected()) return;
     final id = '${event.remoteAddress.address}:${event.remotePort}';
     final handler = SocketHandler(
       id: id,
@@ -62,8 +63,8 @@ bool _isAllClientConnected() => _handlers.length >= _maxClientSize;
 
 void _handleStartTestProcess() {
   if (_isAllClientConnected()) {
-    Future.delayed(const Duration(seconds: 2)).then((_) {
-      _sendToAllMessage(ClientCommand.startRecording.stringValue);
+    Future.delayed(const Duration(seconds: 2)).then((_) async {
+      await _sendToAllMessage(ClientCommand.startRecording.stringValue);
     });
   }
 }
@@ -84,13 +85,13 @@ void _handleStringMessage(String body) {
   final clientCommand = ClientCommand.fromString(body);
   switch (clientCommand) {
     case ClientCommand.startRecording:
-      Future.delayed(const Duration(seconds: 5)).then((value) {
-        _sendToAllMessage(ClientCommand.startRecording.stringValue);
+      Future.delayed(const Duration(seconds: 5)).then((value) async {
+        await _sendToAllMessage(ClientCommand.startRecording.stringValue);
       });
       break;
     case ClientCommand.stopRecording:
-      Future.delayed(const Duration(seconds: 2)).then((value) {
-        _sendToAllMessage(ClientCommand.sendVideo.stringValue);
+      Future.delayed(const Duration(seconds: 2)).then((value) async {
+        await _sendToAllMessage(ClientCommand.sendVideo.stringValue);
       });
       break;
     case ClientCommand.sendVideo:
@@ -110,14 +111,14 @@ void _handleFileMessage(Uint8List body) {
   file.writeAsBytesSync(body);
 }
 
-void _sendToAllMessage(Object message) {
+Future<void> _sendToAllMessage(Object message) async {
   for (var handler in _handlers.values) {
     if (message is File) {
-      handler.sendFile(message);
+      await handler.sendFile(message);
       continue;
     }
     if (message is String) {
-      handler.sendMessage(message);
+      await handler.sendMessage(message);
       continue;
     }
     throw UnimplementedError('body must be string or file');

@@ -46,12 +46,12 @@ final class SocketHandler {
     _sub = _socket!.listen(_mapper)..onDone(() => onDisconnect(id));
   }
 
-  void sendMessage(String message) async {
+  Future<void> sendMessage(String message) async {
     assert(_socket != null, 'call `listen` first');
     await _socket!.addStream(_createMessageStream(message));
   }
 
-  void sendFile(File file) async {
+  Future<void> sendFile(File file) async {
     assert(_socket != null, 'call `listen` first');
     await _socket!.addStream(_createFileStream(file));
   }
