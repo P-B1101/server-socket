@@ -1,4 +1,4 @@
-enum Command {
+enum ClientCommand {
   startRecording,
   stopRecording,
   sendVideo,
@@ -11,7 +11,7 @@ enum Command {
         unknown => 'UNKNOWN',
       };
 
-  static Command fromJson(String value) => switch (value) {
+  static ClientCommand fromString(String value) => switch (value) {
         'START_RECORDING' => startRecording,
         'STOP_RECORDING' => stopRecording,
         'SEND_VIDEO' => sendVideo,

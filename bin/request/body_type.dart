@@ -1,17 +1,17 @@
 enum BodyType {
   file,
-  json,
+  string,
   unknown;
 
   String get stringValue => switch (this) {
         file => 'FILE',
-        json => 'JSON',
+        string => 'STRING',
         unknown => 'UNKNOWN',
       };
 
-  static BodyType fromJson(String value) => switch (value) {
+  static BodyType fromString(String value) => switch (value) {
         'FILE' => file,
-        'JSON' => json,
+        'STRING' => string,
         _ => unknown,
       };
 }

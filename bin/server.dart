@@ -1,22 +1,21 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
-import './tcp_request.dart';
-import './command.dart';
-import 'body_type.dart';
-import 'method.dart';
+import 'socket_handler.dart';
+import 'request/tcp_request.dart';
+import 'request/client_command.dart';
 
 const _udpPort = 1101;
 const _tcpPort = 1102;
-const _headers = 'headers';
-const _body = 'body';
 const _maxClientSize = 1;
-var _sockets = List<Socket>.empty(growable: true);
+var _handlers = <String, SocketHandler>{};
+late InternetAddress _myId;
 
 void main(List<String> args) async {
-  final ip = await findMyIp() ?? InternetAddress.loopbackIPv4;
-  _brodcastServerIp(ip);
-  _startListen(ip);
+  _myId = await findMyIp() ?? InternetAddress.loopbackIPv4;
+  _brodcastServerIp(_myId);
+  _bind(_myId);
 }
 
 Future<InternetAddress?> findMyIp() async {
@@ -44,161 +43,88 @@ void _brodcastServerIp(InternetAddress ip) {
   });
 }
 
-void _startListen(InternetAddress ip) async {
+void _bind(InternetAddress ip) async {
   final socket = await ServerSocket.bind(ip, _tcpPort);
-  socket.listen((event) => _listen(event, ip));
-  print('listening on $ip:$_tcpPort');
+  socket.listen((event) {
+    final id = '${event.remoteAddress.address}:${event.remotePort}';
+    final handler = SocketHandler(
+      id: id,
+      onReceived: _handleMessage,
+      onDisconnect: _handleDisconnect,
+    )..listen(event);
+    _handlers[id] = handler;
+    _handleStartTestProcess();
+  });
+  print('listening on ${ip.address}:$_tcpPort');
 }
 
-bool _isAllClientConnected() => _sockets.length >= _maxClientSize;
+bool _isAllClientConnected() => _handlers.length >= _maxClientSize;
 
-void _listen(Socket socket, InternetAddress ip) {
-  if (ip.address != socket.remoteAddress.address) {
-    _sockets.add(socket);
-    socket.listen((event) {
-      final message = utf8.decode(event);
-      print('Message recieved: $message');
-      final jsonValue = json.decode(message);
-      print('Json Message recieved: $jsonValue');
-      final body = jsonValue[_body];
-      final headers = jsonValue[_headers];
-      print('body type is ${body.runtimeType}');
-      final request = TCPRequest(
-        body: body is Map<String, dynamic>
-            ? body
-            : body is List
-                ? body.map((e) => e as int).toList()
-                : null,
-        headers: headers,
-      );
-      _handleMessage(request);
+void _handleStartTestProcess() {
+  if (_isAllClientConnected()) {
+    Future.delayed(const Duration(seconds: 2)).then((_) {
+      _sendToAllMessage(ClientCommand.startRecording.stringValue);
     });
-    if (_isAllClientConnected()) {
-      Future.delayed(const Duration(seconds: 2)).then((_) {
-        final message = {
-          'headers': {
-            'method': Method.command.stringValue,
-            'bodyType': BodyType.json.stringValue,
-          },
-          'body': {
-            'commandType': Command.startRecording.stringValue,
-          },
-        };
-        _sendToAllMessage(json.encode(message));
-      });
-    }
   }
-  // if (_sockets.any((e) =>
-  //     '${e.address.address}:${e.port}' ==
-  //     '${socket.address.address}:${socket.port}')) {
-
-  //     }
-  print('client ip: ${socket.remoteAddress.address}:${socket.remotePort}');
 }
 
 void _handleMessage(TCPRequest request) {
-  final method = request.method;
-  final bodyType = request.bodyType;
-  switch (method) {
-    case Method.command:
-      switch (bodyType) {
-        case BodyType.file:
-          break;
-        case BodyType.json:
-          final command = Command.fromJson(
-              (request.body as Map<String, dynamic>)['commandType']);
-          _handleCommand(command);
-          break;
-        case BodyType.unknown:
-          break;
-      }
-      break;
-    case Method.sendFile:
-      final file =
-          File('${Directory.current.path}/${request.headers['fileName']}');
-      if (file.existsSync()) {
-        file.deleteSync();
-      }
-      file.createSync();
-      file.writeAsBytesSync(request.body as List<int>);
-      print(file.path);
-      break;
-    case Method.authentication:
-      break;
-    case Method.unknown:
-      break;
+  final body = request.body;
+  if (body is String) {
+    _handleStringMessage(body);
+    return;
+  }
+  if (body is Uint8List) {
+    _handleFileMessage(body);
+    return;
   }
 }
 
-void _handleCommand(Command command) {
-  switch (command) {
-    case Command.startRecording:
+void _handleStringMessage(String body) {
+  final clientCommand = ClientCommand.fromString(body);
+  switch (clientCommand) {
+    case ClientCommand.startRecording:
       Future.delayed(const Duration(seconds: 5)).then((value) {
-        final message = {
-          'headers': {
-            'method': Method.command.stringValue,
-            'bodyType': BodyType.json.stringValue,
-          },
-          'body': {
-            'commandType': Command.stopRecording.stringValue,
-          },
-        };
-        _sendToAllMessage(json.encode(message));
+        _sendToAllMessage(ClientCommand.startRecording.stringValue);
       });
       break;
-    case Command.stopRecording:
+    case ClientCommand.stopRecording:
+      Future.delayed(const Duration(seconds: 2)).then((value) {
+        _sendToAllMessage(ClientCommand.sendVideo.stringValue);
+      });
       break;
-    case Command.sendVideo:
+    case ClientCommand.sendVideo:
       break;
-    case Command.unknown:
-      break;
+    case ClientCommand.unknown:
+      throw UnimplementedError();
   }
 }
 
-// void _handleAuthentication(dynamic body, Socket socket) async {
-//   _isBrodcastReceived = true;
-//   await Future.delayed(const Duration(seconds: 5));
-//   final headers = {
-//     'method': 'COMMAND',
-//   };
-//   final body = {
-//     'commandType': 'START_RECORD',
-//   };
-//   final message = json.encode({
-//     'headers': headers,
-//     'body': body,
-//   });
-//   _sendMessage(socket, message);
-//   print('send start record command');
-// }
+void _handleFileMessage(Uint8List body) {
+  if (body.isEmpty) return;
+  final name = '${DateTime.now().millisecondsSinceEpoch.toString()}.mp4';
+  final path = Directory.current.path;
+  final file = File('$path/$name');
+  if (file.existsSync()) file.deleteSync();
+  file.createSync();
+  file.writeAsBytesSync(body);
+}
 
-// void _handleAck(dynamic body, Socket socket) async {
-//   final commandType = body['commandType'];
-//   if (commandType == 'START_RECORD') {
-//     await Future.delayed(const Duration(seconds: 5));
-//     final headers = {
-//       'method': 'COMMAND',
-//     };
-//     final body = {
-//       'commandType': 'STOP_RECORD',
-//     };
-//     final message = json.encode({
-//       'headers': headers,
-//       'body': body,
-//     });
-//     _sendMessage(socket, message);
-//     print('send stop record command');
-//   }
-// }
-
-// void _sendMessage(Socket socket, String message) {
-//   final data = utf8.encode(message);
-//   socket.add(data);
-// }
-
-void _sendToAllMessage(String message) {
-  final data = utf8.encode(message);
-  for (var socket in _sockets) {
-    socket.add(data);
+void _sendToAllMessage(Object message) {
+  for (var handler in _handlers.values) {
+    if (message is File) {
+      handler.sendFile(message);
+      continue;
+    }
+    if (message is String) {
+      handler.sendMessage(message);
+      continue;
+    }
+    throw UnimplementedError('body must be string or file');
   }
+}
+
+void _handleDisconnect(String id) {
+  _handlers.remove(id);
+  _brodcastServerIp(_myId);
 }
