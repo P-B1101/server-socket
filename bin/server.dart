@@ -64,6 +64,7 @@ bool _isAllClientConnected() => _handlers.length >= _maxClientSize;
 void _handleStartTestProcess() async {
   if (_isAllClientConnected()) {
     await Future.delayed(const Duration(seconds: 2));
+    print('Process started');
     await _sendToAllMessage(ClientCommand.startRecording.stringValue);
   }
 }
@@ -74,7 +75,7 @@ Future<void> _handleMessage(TCPRequest request) async {
     await _handleStringMessage(body);
     return;
   }
-  if (body is Uint8List) {
+  if (body is List<int>) {
     await _handleFileMessage(body);
     return;
   }
@@ -85,7 +86,7 @@ Future<void> _handleStringMessage(String body) async {
   switch (clientCommand) {
     case ClientCommand.startRecording:
       Future.delayed(const Duration(seconds: 5)).then((value) async {
-        await _sendToAllMessage(ClientCommand.startRecording.stringValue);
+        await _sendToAllMessage(ClientCommand.stopRecording.stringValue);
       });
       break;
     case ClientCommand.stopRecording:
@@ -100,7 +101,7 @@ Future<void> _handleStringMessage(String body) async {
   }
 }
 
-Future<void> _handleFileMessage(Uint8List body) async {
+Future<void> _handleFileMessage(List<int> body) async {
   if (body.isEmpty) return;
   final name = '${DateTime.now().millisecondsSinceEpoch.toString()}.mp4';
   final path = Directory.current.path;
@@ -108,6 +109,7 @@ Future<void> _handleFileMessage(Uint8List body) async {
   if (file.existsSync()) file.deleteSync();
   file.createSync();
   file.writeAsBytesSync(body);
+  print('file saved.');
 }
 
 Future<void> _sendToAllMessage(Object message) async {
