@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'request/tcp_request.dart';
 import 'request/tcp_command.dart';
 
+const tokenIdentifier = 'TOKEN:';
+
 final class SocketHandler {
   final String id;
   final Future<void> Function(TCPRequest) onReceived;
@@ -120,6 +122,15 @@ final class SocketHandler {
     try {
       final data = utf8.decode(bytes);
       print('Data received: $data');
+      if (data.contains(tokenIdentifier)) {
+        final body = data.substring(2, data.length - 2);
+        final request = TCPRequest(
+          body: body.replaceAll(tokenIdentifier, ''),
+          command: TCPCommand.authentication,
+        );
+        await onReceived(request);
+        return true;
+      }
       if (!data.startsWith(_dividerString) || !data.endsWith(_dividerString)) {
         throw Exception('Not A Command');
       }

@@ -64,12 +64,17 @@ void _handleStartTestProcess() async {
   if (_isAllClientConnected()) {
     await Future.delayed(const Duration(seconds: 2));
     print('Process started');
-    await _sendToAllMessage(ClientCommand.startRecording.stringValue);
+    await _sendToAllMessage(ClientCommand.authentication.stringValue);
   }
 }
 
 Future<void> _handleMessage(TCPRequest request) async {
   final body = request.body;
+  if (request.isAuthentication) {
+    await Future.delayed(const Duration(seconds: 2));
+    await _sendToAllMessage(ClientCommand.startRecording.stringValue);
+    return;
+  }
   if (body is String) {
     await _handleStringMessage(body);
     return;
@@ -97,7 +102,17 @@ Future<void> _handleStringMessage(String body) async {
       break;
     case ClientCommand.unknown:
       throw UnimplementedError();
+    case ClientCommand.authentication:
+      break;
+    case ClientCommand.token:
+      _generateTokenAndSend();
+      break;
   }
+}
+
+void _generateTokenAndSend() async {
+  final token = DateTime.now().millisecondsSinceEpoch.toString();
+  await _sendToAllMessage('$tokenIdentifier$token');
 }
 
 Future<void> _handleFileMessage(List<int> body) async {

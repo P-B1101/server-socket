@@ -11,4 +11,6 @@ class TCPRequest {
 
   factory TCPRequest.create(TCPCommand command) =>
       TCPRequest(body: null, command: command);
+
+  bool get isAuthentication => command == TCPCommand.authentication;
 }
