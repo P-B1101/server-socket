@@ -37,7 +37,7 @@ void _brodcastServerIp(InternetAddress ip) {
     final data = utf8.encode(message);
     while (!_isAllClientConnected()) {
       udpSocket.send(data, InternetAddress('255.255.255.255'), _udpPort);
-      print('$message sent');
+      print('broadcast on port $_udpPort: $message');
       await Future.delayed(const Duration(seconds: 1));
     }
   });
