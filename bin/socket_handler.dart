@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'request/tcp_request.dart';
 import 'request/tcp_command.dart';
+import 'request/client_type.dart';
 
 const tokenIdentifier = 'TOKEN:';
 
@@ -23,6 +24,7 @@ final class SocketHandler {
   final _bytes = List<int>.empty(growable: true);
   // bool _isFile = false;
   StreamSubscription? _sub;
+  ClientType _clientType = ClientType.unknown;
   static const _dividerString = '||';
   static final _divider = utf8.encode(_dividerString);
 
@@ -31,6 +33,8 @@ final class SocketHandler {
     print('client ip: ${socket.remoteAddress.address}:${socket.remotePort}');
     _listenToSocket();
   }
+
+  bool get isAndroidCamera => _clientType == ClientType.androidCamera;
 
   Future<void> disconnect() async {
     try {
@@ -122,11 +126,26 @@ final class SocketHandler {
     try {
       final data = utf8.decode(bytes);
       print('Data received: $data');
+      if (_clientType == ClientType.unknown) {
+        _clientType = ClientType.fromString(data.substring(2, data.length - 2));
+        if (_clientType == ClientType.unknown) {
+          print('client must introduce itself first');
+          return true;
+        }
+        final request = TCPRequest(
+          body: null,
+          command: TCPCommand.introduction,
+          clientType: _clientType,
+        );
+        await onReceived(request);
+        return true;
+      }
       if (data.contains(tokenIdentifier)) {
         final body = data.substring(2, data.length - 2);
         final request = TCPRequest(
           body: body.replaceAll(tokenIdentifier, ''),
           command: TCPCommand.authentication,
+          clientType: _clientType,
         );
         await onReceived(request);
         return true;
@@ -140,12 +159,14 @@ final class SocketHandler {
         request = TCPRequest(
           body: _bytes.toList(),
           command: TCPCommand.sendFile,
+          clientType: _clientType,
         );
         _handleEOM();
       } else {
         request = TCPRequest(
           body: body,
           command: TCPCommand.sendMessage,
+          clientType: _clientType,
         );
       }
       await onReceived(request);

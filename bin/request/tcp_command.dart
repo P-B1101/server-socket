@@ -1,6 +1,7 @@
 enum TCPCommand {
   sendMessage,
   sendFile,
+  introduction,
   authentication,
   eom,
   unknown;
@@ -10,6 +11,7 @@ enum TCPCommand {
         sendFile => 'SEND_FILE',
         authentication => 'AUTHENTICATION',
         eom => 'END_OF_MESSAGE',
+        introduction => 'INTRODUCTION',
         unknown => 'UNKNOWN',
       };
 
@@ -18,6 +20,7 @@ enum TCPCommand {
         'SEND_FILE' => sendFile,
         'AUTHENTICATION' => authentication,
         'END_OF_MESSAGE' => eom,
+        'INTRODUCTION' => introduction,
         _ => unknown,
       };
 }

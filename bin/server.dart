@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:mime/mime.dart';
+
 import 'socket_handler.dart';
 import 'request/tcp_request.dart';
 import 'request/client_command.dart';
@@ -60,8 +62,11 @@ void _bind(InternetAddress ip) async {
 
 bool _isAllClientConnected() => _handlers.length >= _maxClientSize;
 
+bool _isAllCameraClientConnected() =>
+    _handlers.values.where((e) => e.isAndroidCamera).length >= _maxClientSize;
+
 void _handleStartTestProcess() async {
-  if (_isAllClientConnected()) {
+  if (_isAllCameraClientConnected()) {
     await Future.delayed(const Duration(seconds: 2));
     print('Process started');
     await _sendToAllMessage(ClientCommand.authentication.stringValue);
@@ -117,7 +122,10 @@ void _generateTokenAndSend() async {
 
 Future<void> _handleFileMessage(List<int> body) async {
   if (body.isEmpty) return;
-  final name = '${DateTime.now().millisecondsSinceEpoch.toString()}.mp4';
+  var mime = lookupMimeType('', headerBytes: body);
+  var extension = extensionFromMime(mime ?? '');
+  final name =
+      '${DateTime.now().millisecondsSinceEpoch.toString()}.$extension';
   final path = Directory.current.path;
   final file = File('$path/$name');
   if (file.existsSync()) file.deleteSync();
