@@ -11,7 +11,7 @@ const tokenIdentifier = 'TOKEN:';
 
 final class SocketHandler {
   final String id;
-  final Future<void> Function(TCPRequest) onReceived;
+  final Future<void> Function(String, TCPRequest) onReceived;
   final void Function(String id) onDisconnect;
   SocketHandler({
     required this.id,
@@ -137,7 +137,7 @@ final class SocketHandler {
           command: TCPCommand.introduction,
           clientType: _clientType,
         );
-        await onReceived(request);
+        await onReceived(id, request);
         return true;
       }
       if (data.contains(tokenIdentifier)) {
@@ -147,7 +147,7 @@ final class SocketHandler {
           command: TCPCommand.authentication,
           clientType: _clientType,
         );
-        await onReceived(request);
+        await onReceived(id, request);
         return true;
       }
       if (!data.startsWith(_dividerString) || !data.endsWith(_dividerString)) {
@@ -169,7 +169,7 @@ final class SocketHandler {
           clientType: _clientType,
         );
       }
-      await onReceived(request);
+      await onReceived(id, request);
       return true;
     } catch (error) {
       // print(error);

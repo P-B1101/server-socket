@@ -6,11 +6,12 @@ import 'package:mime/mime.dart';
 
 import 'socket_handler.dart';
 import 'request/tcp_request.dart';
+import 'request/client_type.dart';
 import 'request/client_command.dart';
 
 const _udpPort = 1101;
 const _tcpPort = 1102;
-const _maxClientSize = 1;
+const _maxClientSize = 2;
 var _handlers = <String, SocketHandler>{};
 late InternetAddress _myId;
 
@@ -55,33 +56,33 @@ void _bind(InternetAddress ip) async {
       onDisconnect: _handleDisconnect,
     )..listen(event);
     _handlers[id] = handler;
-    _handleStartTestProcess();
+    // _handleStartTestProcess();
   });
   print('listening on ${ip.address}:$_tcpPort');
 }
 
 bool _isAllClientConnected() => _handlers.length >= _maxClientSize;
 
-bool _isAllCameraClientConnected() =>
-    _handlers.values.where((e) => e.isAndroidCamera).length >= _maxClientSize;
+// bool _isAllCameraClientConnected() =>
+//     _handlers.values.where((e) => e.isAndroidCamera).length >= _maxClientSize;
 
-void _handleStartTestProcess() async {
-  if (_isAllCameraClientConnected()) {
-    await Future.delayed(const Duration(seconds: 2));
-    print('Process started');
-    await _sendToAllMessage(ClientCommand.authentication.stringValue);
-  }
-}
+// void _handleStartTestProcess() async {
+//   if (_isAllCameraClientConnected()) {
+//     await Future.delayed(const Duration(seconds: 2));
+//     print('Process started');
+//     await _sendToAllMessage(ClientCommand.authentication.stringValue);
+//   }
+// }
 
-Future<void> _handleMessage(TCPRequest request) async {
+Future<void> _handleMessage(String id, TCPRequest request) async {
   final body = request.body;
   if (request.isAuthentication) {
-    await Future.delayed(const Duration(seconds: 2));
-    await _sendToAllMessage(ClientCommand.startRecording.stringValue);
+    // await Future.delayed(const Duration(seconds: 2));
+    // await _sendToAllMessage(ClientCommand.startRecording.stringValue);
     return;
   }
   if (body is String) {
-    await _handleStringMessage(body);
+    await _handleStringMessage(body: body, id: id, type: request.clientType);
     return;
   }
   if (body is List<int>) {
@@ -90,18 +91,33 @@ Future<void> _handleMessage(TCPRequest request) async {
   }
 }
 
-Future<void> _handleStringMessage(String body) async {
+Future<void> _handleStringMessage({
+  required String id,
+  required String body,
+  required ClientType type,
+}) async {
   final clientCommand = ClientCommand.fromString(body);
   switch (clientCommand) {
+    case ClientCommand.openCamera:
+      if (type == ClientType.androidInterface) {
+        await _sendToAllMessage(ClientCommand.openCamera.stringValue);
+      }
+      break;
     case ClientCommand.startRecording:
-      Future.delayed(const Duration(seconds: 5)).then((value) async {
-        await _sendToAllMessage(ClientCommand.stopRecording.stringValue);
-      });
+      if (type == ClientType.androidInterface) {
+        await _sendToAllMessage(ClientCommand.startRecording.stringValue);
+      }
+      // Future.delayed(const Duration(seconds: 5)).then((value) async {
+      //   await _sendToAllMessage(ClientCommand.stopRecording.stringValue);
+      // });
       break;
     case ClientCommand.stopRecording:
-      Future.delayed(const Duration(seconds: 2)).then((value) async {
-        await _sendToAllMessage(ClientCommand.sendVideo.stringValue);
-      });
+      if (type == ClientType.androidInterface) {
+        await _sendToAllMessage(ClientCommand.stopRecording.stringValue);
+        Future.delayed(const Duration(seconds: 2)).then((value) async {
+          await _sendToAllMessage(ClientCommand.sendVideo.stringValue);
+        });
+      }
       break;
     case ClientCommand.sendVideo:
       break;
@@ -110,22 +126,21 @@ Future<void> _handleStringMessage(String body) async {
     case ClientCommand.authentication:
       break;
     case ClientCommand.token:
-      _generateTokenAndSend();
+      _generateTokenAndSend(id);
       break;
   }
 }
 
-void _generateTokenAndSend() async {
+void _generateTokenAndSend(String id) async {
   final token = DateTime.now().millisecondsSinceEpoch.toString();
-  await _sendToAllMessage('$tokenIdentifier$token');
+  await _sendMessage(id, '$tokenIdentifier$token');
 }
 
 Future<void> _handleFileMessage(List<int> body) async {
   if (body.isEmpty) return;
   var mime = lookupMimeType('', headerBytes: body);
   var extension = extensionFromMime(mime ?? '');
-  final name =
-      '${DateTime.now().millisecondsSinceEpoch.toString()}.$extension';
+  final name = '${DateTime.now().millisecondsSinceEpoch.toString()}.$extension';
   final path = Directory.current.path;
   final file = File('$path/$name');
   if (file.existsSync()) file.deleteSync();
@@ -136,7 +151,7 @@ Future<void> _handleFileMessage(List<int> body) async {
 
 Future<void> _sendToAllMessage(Object message) async {
   for (var handler in _handlers.values) {
-    await Future.delayed(const Duration(milliseconds: 500));
+    if (!handler.isAndroidCamera) continue;
     if (message is File) {
       await handler.sendFile(message);
       continue;
@@ -146,6 +161,22 @@ Future<void> _sendToAllMessage(Object message) async {
       continue;
     }
     throw UnimplementedError('body must be string or file');
+  }
+}
+
+Future<void> _sendMessage(String id, Object message) async {
+  final handler = _handlers[id];
+  if (handler == null) {
+    print('Handler not found with id: $id');
+    return;
+  }
+  if (message is File) {
+    await handler.sendFile(message);
+    return;
+  }
+  if (message is String) {
+    await handler.sendMessage(message);
+    return;
   }
 }
 
