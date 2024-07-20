@@ -38,7 +38,7 @@ Future<InternetAddress?> findMyIp() async {
 void _brodcastServerIp(InternetAddress ip) {
   RawDatagramSocket.bind(ip, _udpPort).then((udpSocket) async {
     udpSocket.broadcastEnabled = true;
-    final message = '${ip.address}:$_tcpPort';
+    final message = '||${ip.address}:$_tcpPort||';
     final data = utf8.encode(message);
     while (!_isAllClientConnected()) {
       udpSocket.send(data, InternetAddress('255.255.255.255'), _udpPort);
@@ -91,7 +91,8 @@ Future<void> _handleStringMessage({
           );
           break;
         case ClientType.androidInterface:
-          await _sendMessageToAllCamera(ClientCommand.startRecording.stringValue);
+          await _sendMessageToAllCamera(
+              ClientCommand.startRecording.stringValue);
           _addCowId(body);
           break;
         case ClientType.unknown:
@@ -109,14 +110,16 @@ Future<void> _handleStringMessage({
           });
           break;
         case ClientType.androidInterface:
-          await _sendMessageToAllCamera(ClientCommand.stopRecording.stringValue);
+          await _sendMessageToAllCamera(
+              ClientCommand.stopRecording.stringValue);
           break;
         case ClientType.unknown:
           break;
       }
       break;
     case ClientCommand.unknown:
-      throw UnimplementedError();
+      print(body);
+      break;
     case ClientCommand.token:
       _generateTokenAndSend(id);
       break;
