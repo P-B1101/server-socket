@@ -56,37 +56,21 @@ void _bind(InternetAddress ip) async {
       onDisconnect: _handleDisconnect,
     )..listen(event);
     _handlers[id] = handler;
-    // _handleStartTestProcess();
   });
   print('listening on ${ip.address}:$_tcpPort');
 }
 
 bool _isAllClientConnected() => _handlers.length >= _maxClientSize;
 
-// bool _isAllCameraClientConnected() =>
-//     _handlers.values.where((e) => e.isAndroidCamera).length >= _maxClientSize;
-
-// void _handleStartTestProcess() async {
-//   if (_isAllCameraClientConnected()) {
-//     await Future.delayed(const Duration(seconds: 2));
-//     print('Process started');
-//     await _sendToAllMessage(ClientCommand.authentication.stringValue);
-//   }
-// }
 
 Future<void> _handleMessage(String id, TCPRequest request) async {
   final body = request.body;
-  if (request.isAuthentication) {
-    // await Future.delayed(const Duration(seconds: 2));
-    // await _sendToAllMessage(ClientCommand.startRecording.stringValue);
-    return;
-  }
   if (body is String) {
     await _handleStringMessage(body: body, id: id, type: request.clientType);
     return;
   }
   if (body is List<int>) {
-    await _handleFileMessage(body);
+    await _handleFileMessage(body, request.fileName);
     return;
   }
 }
@@ -98,33 +82,32 @@ Future<void> _handleStringMessage({
 }) async {
   final clientCommand = ClientCommand.fromString(body);
   switch (clientCommand) {
-    case ClientCommand.openCamera:
-      if (type == ClientType.androidInterface) {
-        await _sendToAllMessage(ClientCommand.openCamera.stringValue);
-      }
-      break;
     case ClientCommand.startRecording:
-      if (type == ClientType.androidInterface) {
-        await _sendToAllMessage(ClientCommand.startRecording.stringValue);
+      switch (type) {
+        case ClientType.androidCamera:
+          _sendMessageToInterface(ClientCommand.startRecording.stringValue);
+          break;
+        case ClientType.androidInterface:
+          await _sendToAllMessage(ClientCommand.startRecording.stringValue);
+          break;
+        case ClientType.unknown:
+          break;
       }
-      // Future.delayed(const Duration(seconds: 5)).then((value) async {
-      //   await _sendToAllMessage(ClientCommand.stopRecording.stringValue);
-      // });
       break;
     case ClientCommand.stopRecording:
-      if (type == ClientType.androidInterface) {
-        await _sendToAllMessage(ClientCommand.stopRecording.stringValue);
-        Future.delayed(const Duration(seconds: 2)).then((value) async {
-          await _sendToAllMessage(ClientCommand.sendVideo.stringValue);
-        });
+      switch (type) {
+        case ClientType.androidCamera:
+          _sendMessageToInterface(ClientCommand.stopRecording.stringValue);
+          break;
+        case ClientType.androidInterface:
+          await _sendToAllMessage(ClientCommand.stopRecording.stringValue);
+          break;
+        case ClientType.unknown:
+          break;
       }
-      break;
-    case ClientCommand.sendVideo:
       break;
     case ClientCommand.unknown:
       throw UnimplementedError();
-    case ClientCommand.authentication:
-      break;
     case ClientCommand.token:
       _generateTokenAndSend(id);
       break;
@@ -133,16 +116,18 @@ Future<void> _handleStringMessage({
 
 void _generateTokenAndSend(String id) async {
   final token = DateTime.now().millisecondsSinceEpoch.toString();
-  await _sendMessage(id, '$tokenIdentifier$token');
+  await _sendMessage(id, '${ClientCommand.token.stringValue}:$token');
 }
 
-Future<void> _handleFileMessage(List<int> body) async {
+Future<void> _handleFileMessage(List<int> body, String? fileName) async {
   if (body.isEmpty) return;
-  var mime = lookupMimeType('', headerBytes: body);
-  var extension = extensionFromMime(mime ?? '');
-  final name = '${DateTime.now().millisecondsSinceEpoch.toString()}.$extension';
+  if (fileName == null) {
+    var mime = lookupMimeType('', headerBytes: body);
+    var extension = extensionFromMime(mime ?? '');
+    fileName = '${DateTime.now().millisecondsSinceEpoch.toString()}.$extension';
+  }
   final path = Directory.current.path;
-  final file = File('$path/$name');
+  final file = File('$path/$fileName');
   if (file.existsSync()) file.deleteSync();
   file.createSync();
   file.writeAsBytesSync(body);
@@ -177,6 +162,13 @@ Future<void> _sendMessage(String id, Object message) async {
   if (message is String) {
     await handler.sendMessage(message);
     return;
+  }
+}
+
+Future<void> _sendMessageToInterface(String message) async {
+  for (var handler in _handlers.values) {
+    if (handler.isAndroidCamera) continue;
+    await handler.sendMessage(message);
   }
 }
 
