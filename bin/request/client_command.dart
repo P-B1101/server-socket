@@ -17,6 +17,10 @@ enum ClientCommand {
         'TOKEN' => token,
         'START_RECORDING' => startRecording,
         'STOP_RECORDING' => stopRecording,
-        _ => value.startsWith('REF_ID') ? refId : unknown,
+        _ => value.startsWith('REF_ID')
+            ? refId
+            : value.startsWith('START_RECORDING')
+                ? startRecording
+                : unknown,
       };
 }

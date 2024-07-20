@@ -87,10 +87,12 @@ Future<void> _handleStringMessage({
       switch (type) {
         case ClientType.androidCamera:
           await _sendMessageToInterface(
-              ClientCommand.startRecording.stringValue);
+            ClientCommand.startRecording.stringValue,
+          );
           break;
         case ClientType.androidInterface:
-          await _sendToAllMessage(ClientCommand.startRecording.stringValue);
+          await _sendMessageToAllCamera(ClientCommand.startRecording.stringValue);
+          _addCowId(body);
           break;
         case ClientType.unknown:
           break;
@@ -107,7 +109,7 @@ Future<void> _handleStringMessage({
           });
           break;
         case ClientType.androidInterface:
-          await _sendToAllMessage(ClientCommand.stopRecording.stringValue);
+          await _sendMessageToAllCamera(ClientCommand.stopRecording.stringValue);
           break;
         case ClientType.unknown:
           break;
@@ -119,7 +121,6 @@ Future<void> _handleStringMessage({
       _generateTokenAndSend(id);
       break;
     case ClientCommand.refId:
-      _addCowId(body);
       break;
   }
 }
@@ -144,7 +145,7 @@ Future<void> _handleFileMessage(List<int> body, String? fileName) async {
   print('file saved.');
 }
 
-Future<void> _sendToAllMessage(Object message) async {
+Future<void> _sendMessageToAllCamera(Object message) async {
   for (var handler in _handlers.values) {
     if (!handler.isAndroidCamera) continue;
     if (message is File) {
