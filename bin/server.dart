@@ -62,7 +62,6 @@ void _bind(InternetAddress ip) async {
 
 bool _isAllClientConnected() => _handlers.length >= _maxClientSize;
 
-
 Future<void> _handleMessage(String id, TCPRequest request) async {
   final body = request.body;
   if (body is String) {
@@ -85,7 +84,8 @@ Future<void> _handleStringMessage({
     case ClientCommand.startRecording:
       switch (type) {
         case ClientType.androidCamera:
-          _sendMessageToInterface(ClientCommand.startRecording.stringValue);
+          await _sendMessageToInterface(
+              ClientCommand.startRecording.stringValue);
           break;
         case ClientType.androidInterface:
           await _sendToAllMessage(ClientCommand.startRecording.stringValue);
@@ -97,7 +97,12 @@ Future<void> _handleStringMessage({
     case ClientCommand.stopRecording:
       switch (type) {
         case ClientType.androidCamera:
-          _sendMessageToInterface(ClientCommand.stopRecording.stringValue);
+          await _sendMessageToInterface(
+              ClientCommand.stopRecording.stringValue);
+          Future.delayed(const Duration(seconds: 4)).then((_) {
+            _sendMessageToInterface(
+                '${ClientCommand.refId.stringValue}:${DateTime.now().millisecondsSinceEpoch}');
+          });
           break;
         case ClientType.androidInterface:
           await _sendToAllMessage(ClientCommand.stopRecording.stringValue);
@@ -110,6 +115,8 @@ Future<void> _handleStringMessage({
       throw UnimplementedError();
     case ClientCommand.token:
       _generateTokenAndSend(id);
+      break;
+    case ClientCommand.refId:
       break;
   }
 }
