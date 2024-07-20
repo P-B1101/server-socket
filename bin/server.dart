@@ -8,11 +8,13 @@ import 'socket_handler.dart';
 import 'request/tcp_request.dart';
 import 'request/client_type.dart';
 import 'request/client_command.dart';
+import 'cow_id.dart';
 
 const _udpPort = 1101;
 const _tcpPort = 1102;
 const _maxClientSize = 2;
 var _handlers = <String, SocketHandler>{};
+var _cowIds = <String, CowId>{};
 late InternetAddress _myId;
 
 void main(List<String> args) async {
@@ -117,6 +119,7 @@ Future<void> _handleStringMessage({
       _generateTokenAndSend(id);
       break;
     case ClientCommand.refId:
+      _addCowId(body);
       break;
   }
 }
@@ -182,4 +185,14 @@ Future<void> _sendMessageToInterface(String message) async {
 void _handleDisconnect(String id) {
   _handlers.remove(id);
   _brodcastServerIp(_myId);
+}
+
+void _addCowId(String message) {
+  final temp = message.split(':');
+  final cowId = CowId(
+    id: temp[1] == 'NULL' ? null : temp[1],
+    refId: temp[2] == 'NULL' ? null : temp[2],
+  );
+  if (cowId.serialize == null) return;
+  if (_cowIds[cowId.serialize!] == null) _cowIds[cowId.serialize!] = cowId;
 }
