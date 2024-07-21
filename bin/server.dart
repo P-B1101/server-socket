@@ -13,9 +13,12 @@ import 'cow_id.dart';
 const _udpPort = 1101;
 const _tcpPort = 1102;
 const _maxClientSize = 2;
+const _maxCameraClientSize = 1;
 var _handlers = <String, SocketHandler>{};
 var _cowIds = <String, CowId>{};
 late InternetAddress _myId;
+
+var _time = 0;
 
 void main(List<String> args) async {
   _myId = await findMyIp() ?? InternetAddress.loopbackIPv4;
@@ -36,6 +39,7 @@ Future<InternetAddress?> findMyIp() async {
 }
 
 void _brodcastServerIp(InternetAddress ip) {
+  if (_isAllClientConnected()) return;
   RawDatagramSocket.bind(ip, _udpPort).then((udpSocket) async {
     udpSocket.broadcastEnabled = true;
     final message = '||${ip.address}:$_tcpPort||';
@@ -58,11 +62,17 @@ void _bind(InternetAddress ip) async {
       onDisconnect: _handleDisconnect,
     )..listen(event);
     _handlers[id] = handler;
+    _sendMessageToInterface(
+        '${ClientCommand.standby.stringValue}:${_isAllCameraClientConnected()}');
   });
   print('listening on ${ip.address}:$_tcpPort');
 }
 
 bool _isAllClientConnected() => _handlers.length >= _maxClientSize;
+
+bool _isAllCameraClientConnected() =>
+    _handlers.values.where((element) => element.isAndroidCamera).length >=
+    _maxCameraClientSize;
 
 Future<void> _handleMessage(String id, TCPRequest request) async {
   final body = request.body;
@@ -103,10 +113,13 @@ Future<void> _handleStringMessage({
       switch (type) {
         case ClientType.androidCamera:
           await _sendMessageToInterface(
-              ClientCommand.stopRecording.stringValue);
-          Future.delayed(const Duration(seconds: 4)).then((_) {
+            ClientCommand.stopRecording.stringValue,
+          );
+          Future.delayed(const Duration(seconds: 2)).then((_) {
             _sendMessageToInterface(
-                '${ClientCommand.refId.stringValue}:${DateTime.now().millisecondsSinceEpoch}');
+              '${ClientCommand.rfId.stringValue}:'
+              '${DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000}',
+            );
           });
           break;
         case ClientType.androidInterface:
@@ -117,13 +130,15 @@ Future<void> _handleStringMessage({
           break;
       }
       break;
+    case ClientCommand.standby:
     case ClientCommand.unknown:
-      print(body);
+    case ClientCommand.rfId:
       break;
     case ClientCommand.token:
       _generateTokenAndSend(id);
       break;
-    case ClientCommand.refId:
+    case ClientCommand.dateTime:
+      _startTimer(int.parse(body.split(':')[1]) * 1000);
       break;
   }
 }
@@ -156,6 +171,7 @@ Future<void> _sendMessageToAllCamera(Object message) async {
       continue;
     }
     if (message is String) {
+      print('DateTime: $_getDateTime');
       await handler.sendMessage(message);
       continue;
     }
@@ -174,6 +190,7 @@ Future<void> _sendMessage(String id, Object message) async {
     return;
   }
   if (message is String) {
+    print('DateTime: $_getDateTime');
     await handler.sendMessage(message);
     return;
   }
@@ -182,12 +199,15 @@ Future<void> _sendMessage(String id, Object message) async {
 Future<void> _sendMessageToInterface(String message) async {
   for (var handler in _handlers.values) {
     if (handler.isAndroidCamera) continue;
+    print('DateTime: $_getDateTime');
     await handler.sendMessage(message);
   }
 }
 
 void _handleDisconnect(String id) {
   _handlers.remove(id);
+  _sendMessageToInterface(
+      '${ClientCommand.standby.stringValue}:${_isAllCameraClientConnected()}');
   _brodcastServerIp(_myId);
 }
 
@@ -195,8 +215,16 @@ void _addCowId(String message) {
   final temp = message.split(':');
   final cowId = CowId(
     id: temp[1] == 'NULL' ? null : temp[1],
-    refId: temp[2] == 'NULL' ? null : temp[2],
+    rfId: temp[2] == 'NULL' ? null : temp[2],
   );
   if (cowId.serialize == null) return;
   if (_cowIds[cowId.serialize!] == null) _cowIds[cowId.serialize!] = cowId;
 }
+
+void _startTimer(int time) {
+  _time = time;
+  Timer.periodic(const Duration(milliseconds: 1), (timer) => _time++);
+}
+
+DateTime? get _getDateTime =>
+    _time == 0 ? null : DateTime.fromMillisecondsSinceEpoch(_time);

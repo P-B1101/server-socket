@@ -2,11 +2,15 @@ enum ClientCommand {
   token,
   startRecording,
   stopRecording,
-  refId,
+  rfId,
+  dateTime,
+  standby,
   unknown;
 
   String get stringValue => switch (this) {
-        refId => 'REF_ID',
+        dateTime => 'DATE_TIME',
+        standby => 'STANDBY',
+        rfId => 'RF_ID',
         token => 'TOKEN',
         startRecording => 'START_RECORDING',
         stopRecording => 'STOP_RECORDING',
@@ -17,10 +21,12 @@ enum ClientCommand {
         'TOKEN' => token,
         'START_RECORDING' => startRecording,
         'STOP_RECORDING' => stopRecording,
-        _ => value.startsWith('REF_ID')
-            ? refId
-            : value.startsWith('START_RECORDING')
-                ? startRecording
-                : unknown,
+        _ => () {
+            if (value.startsWith('RF_ID')) return rfId;
+            if (value.startsWith('START_RECORDING')) return startRecording;
+            if (value.startsWith('DATE_TIME')) return dateTime;
+            if (value.startsWith('STANDBY')) return standby;
+            return unknown;
+          }(),
       };
 }
