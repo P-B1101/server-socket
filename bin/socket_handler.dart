@@ -11,7 +11,7 @@ const tokenIdentifier = 'TOKEN:';
 
 final class SocketHandler {
   final String id;
-  final Future<void> Function(String, TCPRequest) onReceived;
+  final Future<void> Function(String, TCPRequest, bool) onReceived;
   final void Function(String id) onDisconnect;
   SocketHandler({
     required this.id,
@@ -91,7 +91,7 @@ final class SocketHandler {
       _fileLength = 0;
       _isFile = false;
       _fileName = null;
-      onReceived(id, request);
+      onReceived(id, request, false);
     }
     return true;
   }
@@ -132,7 +132,7 @@ final class SocketHandler {
 
   bool _handleStringCommand(String message) {
     final request = TCPRequest.command(message, _clientType);
-    onReceived(id, request);
+    onReceived(id, request, false);
     return true;
   }
 
@@ -144,7 +144,7 @@ final class SocketHandler {
       return true;
     }
     final request = TCPRequest.clientType(_clientType);
-    onReceived(id, request);
+    onReceived(id, request, true);
     return true;
   }
 

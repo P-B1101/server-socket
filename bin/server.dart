@@ -62,8 +62,6 @@ void _bind(InternetAddress ip) async {
       onDisconnect: _handleDisconnect,
     )..listen(event);
     _handlers[id] = handler;
-    _sendMessageToInterface(
-        '${ClientCommand.standby.stringValue}:${_isAllCameraClientConnected()}');
   });
   print('listening on ${ip.address}:$_tcpPort');
 }
@@ -74,7 +72,15 @@ bool _isAllCameraClientConnected() =>
     _handlers.values.where((element) => element.isAndroidCamera).length >=
     _maxCameraClientSize;
 
-Future<void> _handleMessage(String id, TCPRequest request) async {
+Future<void> _handleMessage(
+  String id,
+  TCPRequest request,
+  bool isClientTypeMessage,
+) async {
+  if (isClientTypeMessage) {
+    _sendMessageToInterface(
+        '${ClientCommand.standby.stringValue}:${_isAllCameraClientConnected()}');
+  }
   final body = request.body;
   if (body is String) {
     await _handleStringMessage(body: body, id: id, type: request.clientType);
