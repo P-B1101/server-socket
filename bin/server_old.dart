@@ -78,8 +78,10 @@ Future<void> _handleMessage(
   bool isClientTypeMessage,
 ) async {
   if (isClientTypeMessage) {
-    _sendMessageToInterface(
-        '${CommandType.standby.stringValue}:${_isAllCameraClientConnected()}');
+    Future.delayed(const Duration(seconds: 2)).then((_) {
+      _sendMessageToInterface(
+          '${CommandType.standby.stringValue}:${_isAllCameraClientConnected()}');
+    });
   }
   final body = request.body;
   if (body is String) {

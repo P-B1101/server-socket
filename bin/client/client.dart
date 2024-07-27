@@ -19,4 +19,9 @@ class Client {
         ClientInfo.id: id,
         ClientInfo.clientType: type.stringValue,
       };
+
+  @override
+  String toString() {
+    return 'id:$id, type:${type.stringValue}';
+  }
 }

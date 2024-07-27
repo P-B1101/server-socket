@@ -19,13 +19,15 @@ import 'app_config.dart';
 abstract class App implements AppConfig {
   final InternetAddress myIP;
   final _handlers = <String, SocketHandler>{};
-  final int port;
+  final int tcpPort;
+  final int udpPort;
   final Map<ClientType, int> expectedClients;
 
   App({
     required this.myIP,
-    required this.port,
+    required this.tcpPort,
     required this.expectedClients,
+    required this.udpPort,
   });
 
   @override
@@ -39,10 +41,10 @@ abstract class App implements AppConfig {
     if (await isAllClientConnected) return;
     RawDatagramSocket.bind(myIP, 0).then((udpSocket) async {
       udpSocket.broadcastEnabled = true;
-      final message = '||${myIP.address}:$port||';
+      final message = '||${myIP.address}:$tcpPort||';
       final data = utf8.encode(message);
       while (!(await isAllClientConnected)) {
-        udpSocket.send(data, InternetAddress('255.255.255.255'), 0);
+        udpSocket.send(data, InternetAddress('255.255.255.255'), udpPort);
         Logger.instance.log('Broadcasting: $message');
         await Future.delayed(const Duration(seconds: 1));
       }
@@ -51,7 +53,7 @@ abstract class App implements AppConfig {
 
   @override
   void listenForClientConnection() async {
-    final socket = await ServerSocket.bind(myIP, port);
+    final socket = await ServerSocket.bind(myIP, tcpPort);
     socket.listen((event) {
       final id = '${event.remoteAddress.address}:${event.remotePort}';
       final handler = SocketHandler(
@@ -61,7 +63,7 @@ abstract class App implements AppConfig {
       )..listen(event);
       _handlers[id] = handler;
     });
-    Logger.instance.log('Listening on ${myIP.address}:$port');
+    Logger.instance.log('Listening on ${myIP.address}:$tcpPort');
   }
 
   Future<void> _handleMessage(
@@ -72,7 +74,11 @@ abstract class App implements AppConfig {
     if (clientTypeMessage) {
       await saveNewClient(Client(id: id, type: request.clientType));
       await checkForInterfaceStandby();
-      if (request.clientType == ClientType.androidInterface) await askForTime();
+      if (request.clientType == ClientType.androidInterface) {
+        Future.delayed(const Duration(seconds: 2)).then((_) {
+          askForTime();
+        });
+      }
     }
     final body = request.body;
     if (body is String) {
@@ -159,7 +165,8 @@ class TestSCenarioImpl extends App {
   final _cameraStatus = <String, bool>{};
 
   TestSCenarioImpl({
-    required super.port,
+    required super.tcpPort,
+    required super.udpPort,
     required super.expectedClients,
     required super.myIP,
     required this.database,
@@ -206,7 +213,9 @@ class TestSCenarioImpl extends App {
   @override
   Future<void> checkForInterfaceStandby() async {
     final status = await isAllCameraClientConnected;
-    await _sendMessageToInterface('${CommandType.standby.stringValue}:$status');
+    Future.delayed(const Duration(seconds: 1)).then((value) {
+      _sendMessageToInterface('${CommandType.standby.stringValue}:$status');
+    });
   }
 
   @override
@@ -272,8 +281,10 @@ class TestSCenarioImpl extends App {
       final count = temp[data[i].type];
       temp[data[i].type] = count == null ? 1 : count + 1;
     }
-    for (var key in expectedClients.keys) {
-      if (expectedClients[key] != temp[key]) return false;
+    final notZeroClients = Map<ClientType, int>.from(expectedClients);
+    notZeroClients.removeWhere((key, value) => value <= 0);
+    for (var key in notZeroClients.keys) {
+      if (notZeroClients[key] != temp[key]) return false;
     }
     return true;
   }
@@ -287,18 +298,20 @@ class TestSCenarioImpl extends App {
       final count = temp[data[i].type];
       temp[data[i].type] = count == null ? 1 : count + 1;
     }
-    return expectedClients[ClientType.androidCamera] !=
+    return expectedClients[ClientType.androidCamera] ==
         temp[ClientType.androidCamera];
   }
 
   @override
   Future<void> saveNewClient(Client client) async {
     await database.addClient(client);
+    Logger.instance.log('Client added successfuly');
   }
 
   @override
   Future<void> deleteClient(String id) async {
     await database.deleteClient(id);
+    Logger.instance.log('Client deleted successfuly');
   }
 
   Future<void> _sendMessageToAllCamera(String message) async {
@@ -328,8 +341,11 @@ class TestSCenarioImpl extends App {
   @override
   Future<void> checkForCameraStatus(bool startRecording) async {
     final clients = await database.getAllClients();
-    for (var i = 0; i < clients.length; i++) {
-      if (_cameraStatus[clients[i].id] != startRecording) return;
+    final androidCameraClients = clients
+        .where((element) => element.type == ClientType.androidCamera)
+        .toList();
+    for (var i = 0; i < androidCameraClients.length; i++) {
+      if (_cameraStatus[androidCameraClients[i].id] != startRecording) return;
     }
     final command =
         startRecording ? CommandType.startRecording : CommandType.stopRecording;

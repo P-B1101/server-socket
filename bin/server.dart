@@ -12,7 +12,8 @@ void main(List<String> args) async {
       ClientType.androidInterface: 1,
       ClientType.raspberrypi3DCamera: 0,
     },
-    port: 1101,
+    tcpPort: 1102,
+    udpPort: 1101,
   );
   app.start();
 }
