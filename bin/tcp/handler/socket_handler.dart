@@ -3,15 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'request/tcp_request.dart';
-import 'request/tcp_command.dart';
-import 'request/client_type.dart';
+import '../model/tcp_data.dart';
+import '../../client/client_type.dart';
 
 const tokenIdentifier = 'TOKEN:';
 
 final class SocketHandler {
   final String id;
-  final Future<void> Function(String, TCPRequest, bool) onReceived;
+  final Future<void> Function(String, TCPData, bool) onReceived;
   final void Function(String id) onDisconnect;
   SocketHandler({
     required this.id,
@@ -67,7 +66,7 @@ final class SocketHandler {
     final size = await file.length();
     if (size == 0) return;
     final fileName = file.path.fileName;
-    await sendMessage('${TCPCommand.sendFile}:$size:$fileName');
+    await sendMessage('SEND_FILE:$size:$fileName');
     await Future.delayed(const Duration(seconds: 1));
     await _socket!.addStream(file.openRead());
   }
@@ -86,7 +85,7 @@ final class SocketHandler {
     if (!_isFile) return false;
     _bytes.addAll(bytes);
     if (_bytes.length >= _fileLength) {
-      final request = TCPRequest.file(_bytes.toList(), _fileName, _clientType);
+      final request = TCPData.file(_bytes.toList(), _fileName, _clientType);
       _bytes.clear();
       _fileLength = 0;
       _isFile = false;
@@ -113,7 +112,7 @@ final class SocketHandler {
   }
 
   bool _handleSendFileCommand(String message) {
-    if (!message.startsWith(TCPCommand.sendFile.stringValue)) return false;
+    if (!message.startsWith('SEND_FILE')) return false;
     final temp = message.split(':');
     if (temp.length < 2) {
       print('Send File command config is not right. Invalid Messagin protocol');
@@ -131,7 +130,7 @@ final class SocketHandler {
   }
 
   bool _handleStringCommand(String message) {
-    final request = TCPRequest.command(message, _clientType);
+    final request = TCPData.command(message, _clientType);
     onReceived(id, request, false);
     return true;
   }
@@ -143,86 +142,10 @@ final class SocketHandler {
       print('client must introduce itself first');
       return true;
     }
-    final request = TCPRequest.clientType(_clientType);
+    final request = TCPData.clientType(_clientType);
     onReceived(id, request, true);
     return true;
   }
-
-  // void _mapper(Uint8List bytes) async {
-  //   print('new packet received');
-  //   final isString = await _handleStringMessage(bytes);
-  //   if (!isString) _bytes.addAll(bytes);
-  // }
-
-  // Future<bool> _handleStringMessage(Uint8List bytes) async {
-  //   try {
-  //     final data = utf8.decode(bytes);
-  //     print('Data received: $data');
-  //     if (_clientType == ClientType.unknown) {
-  //       _clientType = ClientType.fromString(data.substring(2, data.length - 2));
-  //       if (_clientType == ClientType.unknown) {
-  //         print('client must introduce itself first');
-  //         return true;
-  //       }
-  //       final request = TCPRequest(
-  //         body: null,
-  //         command: TCPCommand.introduction,
-  //         clientType: _clientType,
-  //       );
-  //       await onReceived(id, request);
-  //       return true;
-  //     }
-  //     if (data.contains(tokenIdentifier)) {
-  //       final body = data.substring(2, data.length - 2);
-  //       final request = TCPRequest(
-  //         body: body.replaceAll(tokenIdentifier, ''),
-  //         command: TCPCommand.authentication,
-  //         clientType: _clientType,
-  //       );
-  //       await onReceived(id, request);
-  //       return true;
-  //     }
-  //     if (!data.startsWith(_dividerString) || !data.endsWith(_dividerString)) {
-  //       throw Exception('Not A Command');
-  //     }
-  //     final body = data.substring(2, data.length - 2);
-  //     final TCPRequest request;
-  //     if (body == TCPCommand.eom.stringValue) {
-  //       request = TCPRequest(
-  //         body: _bytes.toList(),
-  //         command: TCPCommand.sendFile,
-  //         clientType: _clientType,
-  //       );
-  //       _handleEOM();
-  //     } else {
-  //       request = TCPRequest(
-  //         body: body,
-  //         command: TCPCommand.sendMessage,
-  //         clientType: _clientType,
-  //       );
-  //     }
-  //     await onReceived(id, request);
-  //     return true;
-  //   } catch (error) {
-  //     // print(error);
-  //     return false;
-  //   }
-  // }
-
-  // void _handleEOM() async {
-  //   // final TCPRequest request;
-  //   // if (_isFile) {
-  //   //   request = TCPRequest(body: _bytes, command: TCPCommand.sendFile);
-  //   // } else {
-  //   //   request = TCPRequest(
-  //   //     body: utf8.decode(_bytes),
-  //   //     command: TCPCommand.sendMessage,
-  //   //   );
-  //   // }
-  //   // await onReceived(request);
-  //   _bytes.clear();
-  //   // _command = null;
-  // }
 }
 
 extension StringExt on String {

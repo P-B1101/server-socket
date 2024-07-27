@@ -1,4 +1,4 @@
-enum ClientCommand {
+enum CommandType {
   token,
   startRecording,
   stopRecording,
@@ -17,7 +17,7 @@ enum ClientCommand {
         unknown => 'UNKNOWN',
       };
 
-  static ClientCommand fromString(String value) => switch (value) {
+  static CommandType fromString(String value) => switch (value) {
         'TOKEN' => token,
         'START_RECORDING' => startRecording,
         'STOP_RECORDING' => stopRecording,
