@@ -18,7 +18,7 @@ abstract interface class AppConfig {
 
   Future<void> askForTime();
 
-  Future<void> onReceiveStartCameraFromInterface(String id);
+  Future<void> onReceiveStartCameraFromInterface(String body);
 
   Future<void> onReceiveStopCameraFromInterface(String id);
 

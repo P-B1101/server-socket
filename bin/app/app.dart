@@ -104,7 +104,7 @@ abstract class App implements AppConfig {
             await onReceiveStartCameraFromAndroidCamera(id);
             break;
           case ClientType.androidInterface:
-            await onReceiveStartCameraFromInterface(id);
+            await onReceiveStartCameraFromInterface(body);
             await _addCowId(body);
             break;
           case ClientType.unknown:
@@ -251,8 +251,8 @@ class TestSCenarioImpl extends App {
   }
 
   @override
-  Future<void> onReceiveStartCameraFromInterface(String id) async {
-    await _sendMessageToAllCamera(CommandType.startRecording.stringValue);
+  Future<void> onReceiveStartCameraFromInterface(String body) async {
+    await _sendMessageToAllCamera(body);
   }
 
   @override
