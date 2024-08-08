@@ -5,6 +5,7 @@ enum CommandType {
   rfId,
   dateTime,
   standby,
+  sendLocation,
   unknown;
 
   String get stringValue => switch (this) {
@@ -14,6 +15,7 @@ enum CommandType {
         token => 'TOKEN',
         startRecording => 'START_RECORDING',
         stopRecording => 'STOP_RECORDING',
+        sendLocation => 'SEND_LOCATION',
         unknown => 'UNKNOWN',
       };
 
@@ -26,6 +28,7 @@ enum CommandType {
             if (value.startsWith('START_RECORDING')) return startRecording;
             if (value.startsWith('DATE_TIME')) return dateTime;
             if (value.startsWith('STANDBY')) return standby;
+            if (value.startsWith('SEND_LOCATION')) return sendLocation;
             return unknown;
           }(),
       };

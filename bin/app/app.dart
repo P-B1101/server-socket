@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:mime/mime.dart';
 
 import '../client/client_type.dart';
+import '../client/camera_position.dart';
 import '../client/client.dart';
 import '../tcp/model/tcp_data.dart';
 import '../utils/logger.dart';
@@ -137,6 +138,9 @@ abstract class App implements AppConfig {
       case CommandType.dateTime:
         await onReceiveResponseOfAskTime(int.parse(body.split(':')[1]) * 1000);
         break;
+      case CommandType.sendLocation:
+        await onReceiveCameraPositionFromAndroidCamera(id, body);
+        break;
     }
   }
 
@@ -199,7 +203,7 @@ class TestSCenarioImpl extends App {
     }
     final path = Directory.current.path;
     final file = File('$path/$filename');
-      Logger.instance.log('File name $filename.');
+    Logger.instance.log('File name $filename.');
     if (file.existsSync()) file.deleteSync();
     file.createSync();
     file.writeAsBytesSync(bytes);
@@ -354,6 +358,20 @@ class TestSCenarioImpl extends App {
     final command =
         startRecording ? CommandType.startRecording : CommandType.stopRecording;
     await _sendMessageToInterface(command.stringValue);
+  }
+
+  @override
+  Future<void> onReceiveCameraPositionFromAndroidCamera(
+    String id,
+    String data,
+  ) async {
+    final temp = data.split(':');
+    if (temp.length != 2) return;
+    final location = CameraLocation.fromString(temp[1]);
+
+    /// do something with it :)
+    Logger.instance
+        .log('Camera position for client $id is ${location.stringValue}');
   }
 }
 

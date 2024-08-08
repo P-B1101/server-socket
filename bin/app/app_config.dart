@@ -26,6 +26,11 @@ abstract interface class AppConfig {
 
   Future<void> onReceiveStopCameraFromAndroidCamera(String id);
 
+  Future<void> onReceiveCameraPositionFromAndroidCamera(
+    String id,
+    String data,
+  );
+
   Future<void> checkForCameraStatus(bool startRecording);
 
   Future<void> onReceiveFileFromAndroidCamera(
