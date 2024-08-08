@@ -187,7 +187,10 @@ class TestSCenarioImpl extends App {
     Uint8List bytes,
     String? filename,
   ) async {
-    if (bytes.isEmpty) return;
+    if (bytes.isEmpty) {
+      Logger.instance.log('file is empty.');
+      return;
+    }
     if (filename == null) {
       var mime = lookupMimeType('', headerBytes: bytes);
       var extension = extensionFromMime(mime ?? '');
@@ -196,6 +199,7 @@ class TestSCenarioImpl extends App {
     }
     final path = Directory.current.path;
     final file = File('$path/$filename');
+      Logger.instance.log('File name $filename.');
     if (file.existsSync()) file.deleteSync();
     file.createSync();
     file.writeAsBytesSync(bytes);

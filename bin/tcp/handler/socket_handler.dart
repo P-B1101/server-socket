@@ -4,9 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../model/tcp_data.dart';
+import '../../utils/logger.dart';
 import '../../client/client_type.dart';
-
-const tokenIdentifier = 'TOKEN:';
 
 final class SocketHandler {
   final String id;
@@ -44,10 +43,10 @@ final class SocketHandler {
       _sub?.cancel();
       _sub = null;
     } on Exception catch (error) {
-      print(error);
+      Logger.instance.log(error);
     }
     onDisconnect(id);
-    print('Socket disconnected.');
+    Logger.instance.log('Socket disconnected.');
   }
 
   void _listenToSocket() {
@@ -58,7 +57,7 @@ final class SocketHandler {
   Future<void> sendMessage(String message) async {
     assert(_socket != null, 'call `listen` first');
     _socket!.add(utf8.encode('$_dividerString$message$_dividerString'));
-    print('message $message sent');
+    Logger.instance.log('message $message sent');
   }
 
   Future<void> sendFile(File file) async {
@@ -72,7 +71,7 @@ final class SocketHandler {
   }
 
   void _mapper(Uint8List bytes) {
-    print('New packet received');
+    Logger.instance.log('New packet received');
     if (_handleBytes(bytes)) return;
     final command = _compileIncommingMessage(bytes);
     if (command == null) return;
@@ -85,11 +84,13 @@ final class SocketHandler {
     if (!_isFile) return false;
     _bytes.addAll(bytes);
     if (_bytes.length >= _fileLength) {
-      final request = TCPData.file(_bytes.toList(), _fileName, _clientType);
+      final request = TCPData.file(
+          Uint8List.fromList(_bytes.toList()), _fileName, _clientType);
       _bytes.clear();
       _fileLength = 0;
       _isFile = false;
       _fileName = null;
+      Logger.instance.log('File fully received.');
       onReceived(id, request, false);
     }
     return true;
@@ -99,14 +100,14 @@ final class SocketHandler {
     try {
       final data = utf8.decode(bytes);
       if (!data.startsWith(_dividerString) || !data.endsWith(_dividerString)) {
-        print('Not A Command');
+        Logger.instance.log('Not A Command');
         return null;
       }
       final result = data.substring(2, data.length - 2);
-      print('String Data received: $result');
+      Logger.instance.log('String Data received: $result');
       return result;
     } catch (error) {
-      print(error);
+      Logger.instance.log(error);
       return null;
     }
   }
@@ -115,12 +116,14 @@ final class SocketHandler {
     if (!message.startsWith('SEND_FILE')) return false;
     final temp = message.split(':');
     if (temp.length < 2) {
-      print('Send File command config is not right. Invalid Messagin protocol');
+      Logger.instance.log(
+          'Send File command config is not right. Invalid Messagin protocol');
       return false;
     }
     final length = int.tryParse(temp[1]);
     if (length == null) {
-      print('Send File command config is not right. Invalid file length');
+      Logger.instance
+          .log('Send File command config is not right. Invalid file length');
       return false;
     }
     _fileLength = length;
@@ -139,7 +142,7 @@ final class SocketHandler {
     if (_clientType != ClientType.unknown) return false;
     _clientType = ClientType.fromString(message);
     if (_clientType == ClientType.unknown) {
-      print('client must introduce itself first');
+      Logger.instance.log('client must introduce itself first');
       return true;
     }
     final request = TCPData.clientType(_clientType);

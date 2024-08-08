@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../client/client_type.dart';
 
 class TCPData {
@@ -24,7 +26,7 @@ class TCPData {
       );
 
   factory TCPData.file(
-    List<int> bytes,
+    Uint8List bytes,
     String? fileName,
     ClientType clientType,
   ) =>
