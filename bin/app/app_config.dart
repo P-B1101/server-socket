@@ -39,8 +39,10 @@ abstract interface class AppConfig {
   );
 
   Future<void> onReceiveGenerateTokenFromAndroidCamera(String id);
-  
+
   Future<void> onReceiveIPAddressFromAndroidCamera(String id);
+
+  Future<void> onReceiveVisitIdFromInterface(String id, String data);
 
   Future<void> checkForInterfaceStandby();
 

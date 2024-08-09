@@ -12,4 +12,11 @@ class CowId {
     if (rfId == null) return '$id:NULL';
     return '$id:$rfId';
   }
+
+  String? get fileNameFormatted {
+    if (id == null && rfId == null) return 'NULL__NULL';
+    if (id == null) return 'NULL__$rfId';
+    if (rfId == null) return '${id}__NULL';
+    return '${id}__$rfId';
+  }
 }

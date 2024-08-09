@@ -1,4 +1,5 @@
 import 'client_database_info.dart';
+import 'farm_database_info.dart';
 import '../client/client.dart';
 
 abstract class Database {
@@ -7,13 +8,19 @@ abstract class Database {
   Future<List<Client>> getAllClients();
 
   Future<void> deleteClient(String id);
+
+  Future<void> setVisitId(String visitId);
+
+  Future<String?> getVisigId();
 }
 
 final class DatabaseImpl implements Database {
   late MockDatabase _db;
 
   DatabaseImpl() {
-    _db = MockDatabase()..createTable(ClientInfo.client);
+    _db = MockDatabase()
+      ..createTable(ClientInfo.client)
+      ..createTable(FarmInfo.farm);
   }
 
   @override
@@ -31,6 +38,17 @@ final class DatabaseImpl implements Database {
     return (await _db.select(ClientInfo.client))
         .map((value) => Client.fromMap(value))
         .toList();
+  }
+
+  @override
+  Future<String?> getVisigId() async {
+    final data = await _db.select(FarmInfo.farm);
+    return data.lastOrNull?[FarmInfo.id];
+  }
+
+  @override
+  Future<void> setVisitId(String visitId) async {
+    await _db.insert(FarmInfo.farm, {FarmInfo.id: visitId});
   }
 }
 

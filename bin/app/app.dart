@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
 
 import '../client/client_type.dart';
@@ -144,6 +145,9 @@ abstract class App implements AppConfig {
       case CommandType.ipAddress:
         await onReceiveIPAddressFromAndroidCamera(id);
         break;
+      case CommandType.visitId:
+        await onReceiveVisitIdFromInterface(id, body);
+        break;
     }
   }
 
@@ -166,7 +170,7 @@ abstract class App implements AppConfig {
 
 class TestSCenarioImpl extends App {
   final Database database;
-  final _cowIds = <String, CowId>{};
+  final _cowIds = <CowId>[];
   var _time = 0;
   Timer? _timer;
   final _cameraStatus = <String, bool>{};
@@ -186,7 +190,7 @@ class TestSCenarioImpl extends App {
   }) async {
     final cowId = CowId(id: id, rfId: rfid);
     if (cowId.serialize == null) return;
-    if (_cowIds[cowId.serialize!] == null) _cowIds[cowId.serialize!] = cowId;
+    _cowIds.add(cowId);
   }
 
   @override
@@ -275,7 +279,20 @@ class TestSCenarioImpl extends App {
 
   @override
   Future<void> onReceiveStopCameraFromInterface(String id) async {
-    await _sendMessageToAllCamera(CommandType.stopRecording.stringValue);
+    final time = _getDateTime;
+    var fileName = '';
+    if (time != null) {
+      String formattedDate = DateFormat('yyyyMMddHHmmss').format(time);
+      fileName = formattedDate;
+    } else {
+      fileName = 'NULL';
+    }
+    final visitId = await database.getVisigId();
+    fileName = '${fileName}__${visitId ?? 'NULL'}';
+    final cowInfo = _cowIds.lastOrNull?.fileNameFormatted;
+    fileName = '${fileName}__$cowInfo';
+    await _sendMessageToAllCamera(
+        '${CommandType.stopRecording.stringValue}:$fileName');
   }
 
   @override
@@ -388,6 +405,13 @@ class TestSCenarioImpl extends App {
       handler,
       '${CommandType.ipAddress.stringValue}:${handler.ipAddress ?? 'NULL'}',
     );
+  }
+
+  @override
+  Future<void> onReceiveVisitIdFromInterface(String id, String data) async {
+    final temp = data.split(':');
+    if (temp.length != 2) return;
+    await database.setVisitId(temp[1]);
   }
 }
 
