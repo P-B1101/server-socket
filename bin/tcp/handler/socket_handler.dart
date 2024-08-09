@@ -36,6 +36,8 @@ final class SocketHandler {
 
   bool get isAndroidCamera => _clientType == ClientType.androidCamera;
 
+  String? get ipAddress => _socket?.remoteAddress.address;
+
   Future<void> disconnect() async {
     try {
       await _socket?.close();

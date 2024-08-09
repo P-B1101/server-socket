@@ -6,6 +6,7 @@ enum CommandType {
   dateTime,
   standby,
   sendLocation,
+  ipAddress,
   unknown;
 
   String get stringValue => switch (this) {
@@ -16,6 +17,7 @@ enum CommandType {
         startRecording => 'START_RECORDING',
         stopRecording => 'STOP_RECORDING',
         sendLocation => 'SEND_LOCATION',
+        ipAddress => 'IP_ADDRESS',
         unknown => 'UNKNOWN',
       };
 
@@ -29,6 +31,7 @@ enum CommandType {
             if (value.startsWith('DATE_TIME')) return dateTime;
             if (value.startsWith('STANDBY')) return standby;
             if (value.startsWith('SEND_LOCATION')) return sendLocation;
+            if (value.startsWith('IP_ADDRESS')) return ipAddress;
             return unknown;
           }(),
       };

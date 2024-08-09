@@ -141,6 +141,9 @@ abstract class App implements AppConfig {
       case CommandType.sendLocation:
         await onReceiveCameraPositionFromAndroidCamera(id, body);
         break;
+      case CommandType.ipAddress:
+        await onReceiveIPAddressFromAndroidCamera(id);
+        break;
     }
   }
 
@@ -372,6 +375,19 @@ class TestSCenarioImpl extends App {
     /// do something with it :)
     Logger.instance
         .log('Camera position for client $id is ${location.stringValue}');
+  }
+
+  @override
+  Future<void> onReceiveIPAddressFromAndroidCamera(String id) async {
+    final handler = _handlers[id];
+    if (handler == null) {
+      Logger.instance.log('Handler not found with id: $id');
+      return;
+    }
+    await _sendMessageToHandler(
+      handler,
+      '${CommandType.ipAddress.stringValue}:${handler.ipAddress ?? 'NULL'}',
+    );
   }
 }
 
