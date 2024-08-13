@@ -24,10 +24,9 @@ enum CommandType {
       };
 
   static CommandType fromString(String value) => switch (value) {
-        'TOKEN' => token,
-        'START_RECORDING' => startRecording,
         'STOP_RECORDING' => stopRecording,
         _ => () {
+            if (value.startsWith('TOKEN')) return token;
             if (value.startsWith('RFID')) return rfId;
             if (value.startsWith('START_RECORDING')) return startRecording;
             if (value.startsWith('DATE_TIME')) return dateTime;

@@ -38,7 +38,10 @@ abstract interface class AppConfig {
     String? filename,
   );
 
-  Future<void> onReceiveGenerateTokenFromAndroidCamera(String id);
+  Future<void> onReceiveGeneratedTokenFromAndroidCamera(
+    String id,
+    String token,
+  );
 
   Future<void> onReceiveIPAddressFromAndroidCamera(String id);
 

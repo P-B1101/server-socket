@@ -134,7 +134,7 @@ abstract class App implements AppConfig {
       case CommandType.rfId:
         break;
       case CommandType.token:
-        await onReceiveGenerateTokenFromAndroidCamera(id);
+        await onReceiveGeneratedTokenFromAndroidCamera(id, body.split(':')[1]);
         break;
       case CommandType.dateTime:
         await onReceiveResponseOfAskTime(int.parse(body.split(':')[1]) * 1000);
@@ -234,17 +234,12 @@ class TestSCenarioImpl extends App {
   }
 
   @override
-  Future<void> onReceiveGenerateTokenFromAndroidCamera(String id) async {
-    final token = DateTime.now().millisecondsSinceEpoch.toString();
-    final handler = _handlers[id];
-    if (handler == null) {
-      Logger.instance.log('Handler not found with id: $id');
-      return;
-    }
-    await _sendMessageToHandler(
-      handler,
-      '${CommandType.token.stringValue}:$token',
-    );
+  Future<void> onReceiveGeneratedTokenFromAndroidCamera(
+    String id,
+    String token,
+  ) async {
+    /// Handle token in the way you want.
+    Logger.instance.log('Received token from $id: $token');
   }
 
   @override
