@@ -9,7 +9,7 @@ void main(List<String> args) async {
     database: DatabaseImpl(),
     expectedClients: {
       ClientType.androidCamera: 1,
-      ClientType.androidInterface: 0,
+      ClientType.androidInterface: 1,
       ClientType.raspberrypi3DCamera: 0,
     },
     tcpPort: 1102,
