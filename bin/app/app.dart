@@ -76,6 +76,7 @@ abstract class App implements AppConfig {
     if (clientTypeMessage) {
       await saveNewClient(Client(id: id, type: request.clientType));
       await checkForInterfaceStandby();
+      await checkAndSendConfigToAndroidCamera();
       if (request.clientType == ClientType.androidInterface) {
         Future.delayed(const Duration(seconds: 2)).then((_) {
           askForTime();
@@ -132,6 +133,7 @@ abstract class App implements AppConfig {
       case CommandType.standby:
       case CommandType.unknown:
       case CommandType.rfId:
+      case CommandType.config:
         break;
       case CommandType.token:
         await onReceiveGeneratedTokenFromAndroidCamera(id, body.split(':')[1]);
@@ -206,7 +208,7 @@ class TestSCenarioImpl extends App {
       var mime = lookupMimeType('', headerBytes: bytes);
       var extension = extensionFromMime(mime ?? '');
       filename =
-          '${DateTime.now().millisecondsSinceEpoch.toString()}.$extension';
+          '${DateTime.now().toLocal().millisecondsSinceEpoch.toString()}.$extension';
     }
     final path = Directory.current.path;
     final file = File('$path/$filename');
@@ -258,22 +260,6 @@ class TestSCenarioImpl extends App {
 
   @override
   Future<void> onReceiveStartCameraFromInterface(String body) async {
-    await _sendMessageToAllCamera(body);
-  }
-
-  @override
-  Future<void> onReceiveStopCameraFromAndroidCamera(String id) async {
-    _cameraStatus[id] = false;
-    await checkForCameraStatus(false);
-    Future.delayed(const Duration(seconds: 2)).then((_) {
-      sendRFIDToInterface(
-        '${DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000}',
-      );
-    });
-  }
-
-  @override
-  Future<void> onReceiveStopCameraFromInterface(String id) async {
     final time = _getDateTime;
     var fileName = '';
     if (time != null) {
@@ -284,10 +270,30 @@ class TestSCenarioImpl extends App {
     }
     final visitId = await database.getVisigId();
     fileName = '${fileName}__${visitId ?? 'NULL'}';
-    final cowInfo = _cowIds.lastOrNull?.fileNameFormatted;
+    final temp = body.split(':');
+    final cow = CowId(
+      id: temp[1] == 'NULL' ? null : temp[1],
+      rfId: temp[2] == 'NULL' ? null : temp[2],
+    );
+    final cowInfo = cow.fileNameFormatted;
     fileName = '${fileName}__$cowInfo';
-    await _sendMessageToAllCamera(
-        '${CommandType.stopRecording.stringValue}:$fileName');
+    await _sendMessageToAllCamera('$body:$fileName');
+  }
+
+  @override
+  Future<void> onReceiveStopCameraFromAndroidCamera(String id) async {
+    _cameraStatus[id] = false;
+    await checkForCameraStatus(false);
+    Future.delayed(const Duration(seconds: 2)).then((_) {
+      sendRFIDToInterface(
+        '${DateTime.now().toLocal().millisecondsSinceEpoch ~/ 1000}',
+      );
+    });
+  }
+
+  @override
+  Future<void> onReceiveStopCameraFromInterface(String id) async {
+    await _sendMessageToAllCamera(CommandType.stopRecording.stringValue);
   }
 
   @override
@@ -407,6 +413,23 @@ class TestSCenarioImpl extends App {
     final temp = data.split(':');
     if (temp.length != 2) return;
     await database.setVisitId(temp[1]);
+  }
+
+  @override
+  Future<void> checkAndSendConfigToAndroidCamera() async {
+    final status = await isAllCameraClientConnected;
+    if (status) {
+      Future.delayed(const Duration(seconds: 1)).then((value) {
+        final config = <String, String>{
+          'fps': '30',
+          'videoBitrate': '3000000',
+        };
+        _sendMessageToAllCamera(
+            '${CommandType.config.stringValue}:${config.values.length}:${config.entries.map(
+                  (e) => '${e.key}:${e.value}',
+                ).join(':')}');
+      });
+    }
   }
 }
 

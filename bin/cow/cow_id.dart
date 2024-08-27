@@ -1,3 +1,5 @@
+import 'dart:math';
+
 class CowId {
   final String? id;
   final String? rfId;
@@ -14,9 +16,9 @@ class CowId {
   }
 
   String? get fileNameFormatted {
-    if (id == null && rfId == null) return 'NULL__NULL';
-    if (id == null) return 'NULL__$rfId';
-    if (rfId == null) return '${id}__NULL';
-    return '${id}__$rfId';
+    if (id == null && rfId == null) return '0__0';
+    if (id == null) return '0__$rfId';
+    if (rfId == null) return '${id}__0';
+    return '${id!.substring(0, min(id!.length, 4))}__${rfId!.substring(0, min(rfId!.length, 15))}';
   }
 }
