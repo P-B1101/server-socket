@@ -24,6 +24,7 @@ abstract class App implements AppConfig {
   final int tcpPort;
   final int udpPort;
   final Map<ClientType, int> expectedClients;
+  bool _isBrodcasting = false;
 
   App({
     required this.myIP,
@@ -40,16 +41,19 @@ abstract class App implements AppConfig {
 
   @override
   void brodcastServerIp() async {
+    if (_isBrodcasting) return;
     if (await isAllClientConnected) return;
     RawDatagramSocket.bind(myIP, 0).then((udpSocket) async {
       udpSocket.broadcastEnabled = true;
       final message = '||${myIP.address}:$tcpPort||';
       final data = utf8.encode(message);
       while (!(await isAllClientConnected)) {
+        _isBrodcasting = true;
         udpSocket.send(data, InternetAddress('255.255.255.255'), udpPort);
         Logger.instance.log('Broadcasting: $message');
         await Future.delayed(const Duration(seconds: 1));
       }
+      _isBrodcasting = false;
     });
   }
 
@@ -418,18 +422,17 @@ class TestSCenarioImpl extends App {
   @override
   Future<void> checkAndSendConfigToAndroidCamera() async {
     final status = await isAllCameraClientConnected;
-    if (status) {
-      Future.delayed(const Duration(seconds: 1)).then((value) {
-        final config = <String, String>{
-          'fps': '30',
-          'videoBitrate': '3000000',
-        };
-        _sendMessageToAllCamera(
-            '${CommandType.config.stringValue}:${config.values.length}:${config.entries.map(
-                  (e) => '${e.key}:${e.value}',
-                ).join(':')}');
-      });
-    }
+    if (!status) return;
+    Future.delayed(const Duration(seconds: 1)).then((value) {
+      final config = <String, String>{
+        'fps': '30',
+        'videoBitrate': '3000000',
+      };
+      _sendMessageToAllCamera(
+          '${CommandType.config.stringValue}:${config.values.length}:${config.entries.map(
+                (e) => '${e.key}:${e.value}',
+              ).join(':')}');
+    });
   }
 }
 
