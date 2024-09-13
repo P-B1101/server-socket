@@ -154,6 +154,9 @@ abstract class App implements AppConfig {
       case CommandType.visitId:
         await onReceiveVisitIdFromInterface(id, body);
         break;
+      case CommandType.version:
+        await onReceiveVersionInfo(id, body);
+        break;
     }
   }
 
@@ -433,6 +436,14 @@ class TestSCenarioImpl extends App {
                 (e) => '${e.key}:${e.value}',
               ).join(':')}');
     });
+  }
+
+  @override
+  Future<void> onReceiveVersionInfo(String id, String data) async {
+    final temp = data.split(':');
+    final name = temp[1];
+    final version = temp[2];
+    Logger.instance.log('name: $name, version: $version');
   }
 }
 

@@ -49,6 +49,8 @@ abstract interface class AppConfig {
 
   Future<void> onReceiveVisitIdFromInterface(String id, String data);
 
+  Future<void> onReceiveVersionInfo(String id, String data);
+
   Future<void> checkForInterfaceStandby();
 
   Future<void> addCow({

@@ -9,6 +9,7 @@ enum CommandType {
   ipAddress,
   visitId,
   config,
+  version,
   unknown;
 
   String get stringValue => switch (this) {
@@ -22,6 +23,7 @@ enum CommandType {
         ipAddress => 'IP_ADDRESS',
         visitId => 'VISIT_ID',
         config => 'CONFIG',
+        version => 'VERSION',
         unknown => 'UNKNOWN',
       };
 
@@ -37,6 +39,7 @@ enum CommandType {
             if (value.startsWith('IP_ADDRESS')) return ipAddress;
             if (value.startsWith('VISIT_ID')) return visitId;
             if (value.startsWith('CONFIG')) return config;
+            if (value.startsWith('VERSION')) return version;
             return unknown;
           }(),
       };
