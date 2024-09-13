@@ -138,6 +138,8 @@ abstract class App implements AppConfig {
       case CommandType.unknown:
       case CommandType.rfId:
       case CommandType.config:
+      case CommandType.startStatus:
+      case CommandType.stopStatus:
         break;
       case CommandType.token:
         await onReceiveGeneratedTokenFromAndroidCamera(id, body.split(':')[1]);
@@ -386,6 +388,8 @@ class TestSCenarioImpl extends App {
     final command =
         startRecording ? CommandType.startRecording : CommandType.stopRecording;
     await _sendMessageToInterface(command.stringValue);
+    await _sendMessageToInterface(
+        '${CommandType.startStatus.stringValue}:${!startRecording}');
   }
 
   @override

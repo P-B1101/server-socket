@@ -15,7 +15,7 @@ class Logger {
     final finalData = '${dateFormat.format(DateTime.now())} ~> $message';
     _buffer.writeln(finalData);
     _controller.add(_buffer.toString());
-    print(_buffer.toString());
+    print(finalData);
   }
 
   Stream<String> get observer => _controller.stream;

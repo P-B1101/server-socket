@@ -10,6 +10,8 @@ enum CommandType {
   visitId,
   config,
   version,
+  startStatus,
+  stopStatus,
   unknown;
 
   String get stringValue => switch (this) {
@@ -24,6 +26,8 @@ enum CommandType {
         visitId => 'VISIT_ID',
         config => 'CONFIG',
         version => 'VERSION',
+        startStatus => 'START_STATUS',
+        stopStatus => 'STOP_STATUS',
         unknown => 'UNKNOWN',
       };
 
@@ -40,6 +44,8 @@ enum CommandType {
             if (value.startsWith('VISIT_ID')) return visitId;
             if (value.startsWith('CONFIG')) return config;
             if (value.startsWith('VERSION')) return version;
+            if (value.startsWith('START_STATUS')) return startStatus;
+            if (value.startsWith('STOP_STATUS')) return stopStatus;
             return unknown;
           }(),
       };
