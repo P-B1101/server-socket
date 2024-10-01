@@ -18,4 +18,6 @@ class Utils {
     }
     return InternetAddress.loopbackIPv4;
   }
+  
+  static const kEndOfMessage = 'message:end';
 }

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../model/tcp_data.dart';
 import '../../utils/logger.dart';
+import '../../utils/utils.dart';
 import '../../client/client_type.dart';
 
 final class SocketHandler {
@@ -20,6 +21,7 @@ final class SocketHandler {
   Socket? _socket;
   // TCPCommand? _command;
   final _bytes = List<int>.empty(growable: true);
+  final _messages = List<int>.empty(growable: true);
   bool _isFile = false;
   int _fileLength = 0;
   StreamSubscription? _sub;
@@ -75,19 +77,20 @@ final class SocketHandler {
   void _mapper(Uint8List bytes) {
     Logger.instance.log('New packet received');
     if (_handleBytes(bytes)) return;
-    final command = _compileIncommingMessage(bytes);
-    if (command == null) return;
-    if (_handleSendFileCommand(command)) return;
-    if (_handleClientTypeCommand(command)) return;
-    if (_handleStringCommand(command)) return;
+    final commands = _compileIncommingMessage(bytes);
+    if (commands == null) return;
+    for (var command in commands) {
+      if (_handleSendFileCommand(command)) return;
+      if (_handleClientTypeCommand(command)) return;
+      if (_handleStringCommand(command)) return;
+    }
   }
 
   bool _handleBytes(List<int> bytes) {
     if (!_isFile) return false;
     _bytes.addAll(bytes);
     if (_bytes.length >= _fileLength) {
-      final request = TCPData.file(
-          Uint8List.fromList(_bytes.toList()), _fileName, _clientType);
+      final request = TCPData.file(Uint8List.fromList(_bytes.toList()), _fileName, _clientType);
       _bytes.clear();
       _fileLength = 0;
       _isFile = false;
@@ -98,34 +101,65 @@ final class SocketHandler {
     return true;
   }
 
-  String? _compileIncommingMessage(List<int> bytes) {
+  List<String>? _compileIncommingMessage(List<int> bytes) {
     try {
-      final data = utf8.decode(bytes);
-      if (!data.startsWith(_dividerString) || !data.endsWith(_dividerString)) {
+      _messages.addAll(bytes);
+      var data = utf8.decode(_messages.toList());
+      if (!data.endsWith(Utils.kEndOfMessage)) return null;
+      data = data.replaceRange(
+        data.length - Utils.kEndOfMessage.length,
+        data.length,
+        '',
+      );
+      _messages.clear();
+      if (!data.contains(_dividerString)) {
         Logger.instance.log('Not A Command');
         return null;
       }
-      final result = data.substring(2, data.length - 2);
-      Logger.instance.log('String Data received: $result');
+      final commands = data.split(_dividerString);
+      final result = List<String>.empty(growable: true);
+      // if (!data.startsWith(_dividerString) || !data.endsWith(_dividerString)) {
+      //   Logger.log('Not A Command');
+      //   return null;
+      // }
+      for (var command in commands) {
+        if (command.isEmpty) continue;
+        Logger.instance.log('String Data received: $command');
+        result.add(command);
+      }
+      // final result = data.substring(2, data.length - 2);
+      Logger.instance.log('Commands received: ${result.join(', ')}');
+
       return result;
     } catch (error) {
       Logger.instance.log(error);
       return null;
     }
+    // try {
+    //   final data = utf8.decode(bytes);
+    //   if (!data.startsWith(_dividerString) || !data.endsWith(_dividerString)) {
+    //     Logger.instance.log('Not A Command');
+    //     return null;
+    //   }
+    //   final result = data.substring(2, data.length - 2);
+    //   Logger.instance.log('String Data received: $result');
+    //   return result;
+    // } catch (error) {
+    //   Logger.instance.log(error);
+    //   return null;
+    // }
   }
 
   bool _handleSendFileCommand(String message) {
     if (!message.startsWith('SEND_FILE')) return false;
     final temp = message.split(':');
     if (temp.length < 2) {
-      Logger.instance.log(
-          'Send File command config is not right. Invalid Messagin protocol');
+      Logger.instance.log('Send File command config is not right. Invalid Messagin protocol');
       return false;
     }
     final length = int.tryParse(temp[1]);
     if (length == null) {
-      Logger.instance
-          .log('Send File command config is not right. Invalid file length');
+      Logger.instance.log('Send File command config is not right. Invalid file length');
       return false;
     }
     _fileLength = length;
