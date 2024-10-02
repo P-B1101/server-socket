@@ -1,11 +1,11 @@
 import 'client/client_type.dart';
 import 'database/database.dart';
 import 'app/app.dart';
-import 'utils/utils.dart';
+import 'utils/constants.dart';
 
 void main(List<String> args) async {
   final App app = TestSCenarioImpl(
-    myIP: await Utils.findMyIp(),
+    myIP: await Constants.findMyIp(),
     database: DatabaseImpl(),
     expectedClients: {
       ClientType.androidCamera: 1,

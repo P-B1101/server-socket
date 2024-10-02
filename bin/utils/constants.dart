@@ -1,7 +1,7 @@
 import 'dart:io';
 
-class Utils {
-  const Utils._();
+class Constants {
+  const Constants._();
 
   /// find my ip from network interfaces where ip start with
   /// 192.168[subnet]
@@ -18,6 +18,6 @@ class Utils {
     }
     return InternetAddress.loopbackIPv4;
   }
-  
+
   static const kEndOfMessage = 'message:end';
 }

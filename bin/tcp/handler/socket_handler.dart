@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import '../model/tcp_data.dart';
 import '../../utils/logger.dart';
-import '../../utils/utils.dart';
+import '../../utils/constants.dart';
 import '../../client/client_type.dart';
 
 final class SocketHandler {
@@ -19,7 +19,6 @@ final class SocketHandler {
   });
 
   Socket? _socket;
-  // TCPCommand? _command;
   final _bytes = List<int>.empty(growable: true);
   final _messages = List<int>.empty(growable: true);
   bool _isFile = false;
@@ -27,8 +26,6 @@ final class SocketHandler {
   StreamSubscription? _sub;
   ClientType _clientType = ClientType.unknown;
   String? _fileName;
-  static const _dividerString = '||';
-  // static final _divider = utf8.encode(_dividerString);
 
   void listen(Socket socket) {
     _socket = socket;
@@ -60,7 +57,7 @@ final class SocketHandler {
 
   Future<void> sendMessage(String message) async {
     assert(_socket != null, 'call `listen` first');
-    _socket!.add(utf8.encode('$_dividerString$message$_dividerString'));
+    _socket!.add(utf8.encode('$message${Constants.kEndOfMessage}'));
     Logger.instance.log('message $message sent');
   }
 
@@ -77,13 +74,11 @@ final class SocketHandler {
   void _mapper(Uint8List bytes) {
     Logger.instance.log('New packet received');
     if (_handleBytes(bytes)) return;
-    final commands = _compileIncommingMessage(bytes);
-    if (commands == null) return;
-    for (var command in commands) {
-      if (_handleSendFileCommand(command)) return;
-      if (_handleClientTypeCommand(command)) return;
-      if (_handleStringCommand(command)) return;
-    }
+    final command = _compileIncommingMessage(bytes);
+    if (command == null) return;
+    if (_handleSendFileCommand(command)) return;
+    if (_handleClientTypeCommand(command)) return;
+    if (_handleStringCommand(command)) return;
   }
 
   bool _handleBytes(List<int> bytes) {
@@ -101,53 +96,23 @@ final class SocketHandler {
     return true;
   }
 
-  List<String>? _compileIncommingMessage(List<int> bytes) {
+  String? _compileIncommingMessage(List<int> bytes) {
     try {
       _messages.addAll(bytes);
       var data = utf8.decode(_messages.toList());
-      if (!data.endsWith(Utils.kEndOfMessage)) return null;
+      if (!data.endsWith(Constants.kEndOfMessage)) return null;
       data = data.replaceRange(
-        data.length - Utils.kEndOfMessage.length,
+        data.length - Constants.kEndOfMessage.length,
         data.length,
         '',
       );
       _messages.clear();
-      if (!data.contains(_dividerString)) {
-        Logger.instance.log('Not A Command');
-        return null;
-      }
-      final commands = data.split(_dividerString);
-      final result = List<String>.empty(growable: true);
-      // if (!data.startsWith(_dividerString) || !data.endsWith(_dividerString)) {
-      //   Logger.log('Not A Command');
-      //   return null;
-      // }
-      for (var command in commands) {
-        if (command.isEmpty) continue;
-        Logger.instance.log('String Data received: $command');
-        result.add(command);
-      }
-      // final result = data.substring(2, data.length - 2);
-      Logger.instance.log('Commands received: ${result.join(', ')}');
-
-      return result;
+      Logger.instance.log('Command received: $data');
+      return data;
     } catch (error) {
       Logger.instance.log(error);
       return null;
     }
-    // try {
-    //   final data = utf8.decode(bytes);
-    //   if (!data.startsWith(_dividerString) || !data.endsWith(_dividerString)) {
-    //     Logger.instance.log('Not A Command');
-    //     return null;
-    //   }
-    //   final result = data.substring(2, data.length - 2);
-    //   Logger.instance.log('String Data received: $result');
-    //   return result;
-    // } catch (error) {
-    //   Logger.instance.log(error);
-    //   return null;
-    // }
   }
 
   bool _handleSendFileCommand(String message) {
