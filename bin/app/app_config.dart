@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import '../client/client.dart';
+import '../tcp/command/command_type.dart';
 
 abstract interface class AppConfig {
   void start();
@@ -24,16 +25,20 @@ abstract interface class AppConfig {
 
   Future<void> onReceiveStopCameraFromInterface(String id);
 
+  Future<void> onReceiveCancelCameraFromInterface(String id);
+
   Future<void> onReceiveStartCameraFromAndroidCamera(String id);
 
   Future<void> onReceiveStopCameraFromAndroidCamera(String id);
+
+  Future<void> onReceiveCancelCameraFromAndroidCamera(String id);
 
   Future<void> onReceiveCameraPositionFromAndroidCamera(
     String id,
     String data,
   );
 
-  Future<void> checkForCameraStatus(bool startRecording);
+  Future<void> checkForCameraStatus(CommandType recordingType);
 
   Future<void> onReceiveFileFromAndroidCamera(
     Uint8List bytes,

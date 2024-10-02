@@ -134,12 +134,27 @@ abstract class App implements AppConfig {
             break;
         }
         break;
+      case CommandType.cancelRecording:
+        switch (type) {
+          case ClientType.androidCamera:
+            await onReceiveCancelCameraFromAndroidCamera(id);
+            break;
+          case ClientType.androidInterface:
+            await onReceiveCancelCameraFromInterface(id);
+            break;
+          case ClientType.unknown:
+            break;
+          case ClientType.raspberrypi3DCamera:
+            break;
+        }
+        break;
       case CommandType.standby:
       case CommandType.unknown:
       case CommandType.rfId:
       case CommandType.config:
       case CommandType.startStatus:
       case CommandType.stopStatus:
+      case CommandType.cancelStatus:
         break;
       case CommandType.token:
         await onReceiveGeneratedTokenFromAndroidCamera(id, body.split(':')[1]);
@@ -184,7 +199,7 @@ class TestSCenarioImpl extends App {
   final _cowIds = <CowId>[];
   var _time = 0;
   Timer? _timer;
-  final _cameraStatus = <String, bool>{};
+  final _cameraStatus = <String, CommandType>{};
 
   TestSCenarioImpl({
     required super.tcpPort,
@@ -216,8 +231,7 @@ class TestSCenarioImpl extends App {
     if (filename == null) {
       var mime = lookupMimeType('', headerBytes: bytes);
       var extension = extensionFromMime(mime ?? '');
-      filename =
-          '${DateTime.now().toLocal().millisecondsSinceEpoch.toString()}.$extension';
+      filename = '${DateTime.now().toLocal().millisecondsSinceEpoch.toString()}.$extension';
     }
     final path = Directory.current.path;
     final file = File('$path/$filename');
@@ -257,14 +271,13 @@ class TestSCenarioImpl extends App {
   Future<void> onReceiveResponseOfAskTime(int epoch) async {
     _time = epoch;
     _timer?.cancel();
-    _timer =
-        Timer.periodic(const Duration(milliseconds: 1), (timer) => _time++);
+    _timer = Timer.periodic(const Duration(milliseconds: 1), (timer) => _time++);
   }
 
   @override
   Future<void> onReceiveStartCameraFromAndroidCamera(String id) async {
-    _cameraStatus[id] = true;
-    await checkForCameraStatus(true);
+    _cameraStatus[id] = CommandType.startRecording;
+    await checkForCameraStatus(CommandType.startRecording);
   }
 
   @override
@@ -291,8 +304,19 @@ class TestSCenarioImpl extends App {
 
   @override
   Future<void> onReceiveStopCameraFromAndroidCamera(String id) async {
-    _cameraStatus[id] = false;
-    await checkForCameraStatus(false);
+    _cameraStatus[id] = CommandType.stopRecording;
+    await checkForCameraStatus(CommandType.stopRecording);
+    Future.delayed(const Duration(seconds: 2)).then((_) {
+      sendRFIDToInterface(
+        '${DateTime.now().toLocal().millisecondsSinceEpoch ~/ 1000}',
+      );
+    });
+  }
+
+  @override
+  Future<void> onReceiveCancelCameraFromAndroidCamera(String id) async {
+    _cameraStatus[id] = CommandType.cancelRecording;
+    await checkForCameraStatus(CommandType.cancelRecording);
     Future.delayed(const Duration(seconds: 2)).then((_) {
       sendRFIDToInterface(
         '${DateTime.now().toLocal().millisecondsSinceEpoch ~/ 1000}',
@@ -303,6 +327,11 @@ class TestSCenarioImpl extends App {
   @override
   Future<void> onReceiveStopCameraFromInterface(String id) async {
     await _sendMessageToAllCamera(CommandType.stopRecording.stringValue);
+  }
+
+    @override
+  Future<void> onReceiveCancelCameraFromInterface(String id) async {
+    await _sendMessageToAllCamera(CommandType.cancelRecording.stringValue);
   }
 
   @override
@@ -336,8 +365,7 @@ class TestSCenarioImpl extends App {
       final count = temp[data[i].type];
       temp[data[i].type] = count == null ? 1 : count + 1;
     }
-    return expectedClients[ClientType.androidCamera] ==
-        temp[ClientType.androidCamera];
+    return expectedClients[ClientType.androidCamera] == temp[ClientType.androidCamera];
   }
 
   @override
@@ -360,8 +388,7 @@ class TestSCenarioImpl extends App {
     }
   }
 
-  DateTime? get _getDateTime =>
-      _time == 0 ? null : DateTime.fromMillisecondsSinceEpoch(_time);
+  DateTime? get _getDateTime => _time == 0 ? null : DateTime.fromMillisecondsSinceEpoch(_time);
 
   Future<void> _sendMessageToInterface(String message) async {
     for (var handler in _handlers.values) {
@@ -370,26 +397,35 @@ class TestSCenarioImpl extends App {
     }
   }
 
-  Future<void> _sendMessageToHandler(
-      SocketHandler handler, String message) async {
+  Future<void> _sendMessageToHandler(SocketHandler handler, String message) async {
     Logger.instance.log('$_getDateTime');
     await handler.sendMessage(message);
   }
 
   @override
-  Future<void> checkForCameraStatus(bool startRecording) async {
+  Future<void> checkForCameraStatus(CommandType recordingType) async {
+    if (!recordingType.isRecordingType) return;
     final clients = await database.getAllClients();
-    final androidCameraClients = clients
-        .where((element) => element.type == ClientType.androidCamera)
-        .toList();
+    final androidCameraClients = clients.where((element) => element.type == ClientType.androidCamera).toList();
     for (var i = 0; i < androidCameraClients.length; i++) {
-      if (_cameraStatus[androidCameraClients[i].id] != startRecording) return;
+      if (_cameraStatus[androidCameraClients[i].id] != recordingType) return;
     }
-    final command =
-        startRecording ? CommandType.startRecording : CommandType.stopRecording;
-    await _sendMessageToInterface(command.stringValue);
-    await _sendMessageToInterface(
-        '${CommandType.startStatus.stringValue}:${!startRecording}');
+    // final command = startRecording ? CommandType.startRecording : CommandType.stopRecording;
+    await _sendMessageToInterface(recordingType.stringValue);
+    switch (recordingType) {
+      case CommandType.startRecording:
+        await _sendMessageToInterface('${CommandType.startStatus.stringValue}:false');
+        await _sendMessageToInterface('${CommandType.cancelStatus.stringValue}:true');
+        await _sendMessageToInterface('${CommandType.stopStatus.stringValue}:true');
+        break;
+      case CommandType.stopRecording:
+      case CommandType.cancelRecording:
+        await _sendMessageToInterface('${CommandType.startStatus.stringValue}:true');
+        await _sendMessageToInterface('${CommandType.cancelStatus.stringValue}:false');
+        await _sendMessageToInterface('${CommandType.stopStatus.stringValue}:false');
+        break;
+      default:
+    }
   }
 
   @override
@@ -402,8 +438,7 @@ class TestSCenarioImpl extends App {
     final location = CameraLocation.fromString(temp[1]);
 
     /// do something with it :)
-    Logger.instance
-        .log('Camera position for client $id is ${location.stringValue}');
+    Logger.instance.log('Camera position for client $id is ${location.stringValue}');
   }
 
   @override
@@ -435,10 +470,9 @@ class TestSCenarioImpl extends App {
         'fps': '30',
         'videoBitrate': '3000000',
       };
-      _sendMessageToAllCamera(
-          '${CommandType.config.stringValue}:${config.values.length}:${config.entries.map(
-                (e) => '${e.key}:${e.value}',
-              ).join(':')}');
+      _sendMessageToAllCamera('${CommandType.config.stringValue}:${config.values.length}:${config.entries.map(
+            (e) => '${e.key}:${e.value}',
+          ).join(':')}');
     });
   }
 

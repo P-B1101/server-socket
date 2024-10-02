@@ -2,6 +2,7 @@ enum CommandType {
   token,
   startRecording,
   stopRecording,
+  cancelRecording,
   rfId,
   dateTime,
   standby,
@@ -12,7 +13,13 @@ enum CommandType {
   version,
   startStatus,
   stopStatus,
+  cancelStatus,
   unknown;
+
+  bool get isRecordingType => switch (this) {
+        startRecording || stopRecording || cancelRecording => true,
+        _ => false,
+      };
 
   String get stringValue => switch (this) {
         dateTime => 'DATE_TIME',
@@ -21,6 +28,7 @@ enum CommandType {
         token => 'TOKEN',
         startRecording => 'START_RECORDING',
         stopRecording => 'STOP_RECORDING',
+        cancelRecording => 'CANCEL_RECORDING',
         sendLocation => 'SEND_LOCATION',
         ipAddress => 'IP_ADDRESS',
         visitId => 'VISIT_ID',
@@ -28,11 +36,13 @@ enum CommandType {
         version => 'VERSION',
         startStatus => 'START_STATUS',
         stopStatus => 'STOP_STATUS',
+        cancelStatus => 'CANCEL_STATUS',
         unknown => 'UNKNOWN',
       };
 
   static CommandType fromString(String value) => switch (value) {
         'STOP_RECORDING' => stopRecording,
+        'CANCEL_RECORDONG' => cancelRecording,
         _ => () {
             if (value.startsWith('TOKEN')) return token;
             if (value.startsWith('RFID')) return rfId;
@@ -46,6 +56,7 @@ enum CommandType {
             if (value.startsWith('VERSION')) return version;
             if (value.startsWith('START_STATUS')) return startStatus;
             if (value.startsWith('STOP_STATUS')) return stopStatus;
+            if (value.startsWith('CANCEL_RECORDING')) return cancelRecording;
             return unknown;
           }(),
       };

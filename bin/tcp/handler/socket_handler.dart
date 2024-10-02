@@ -72,7 +72,7 @@ final class SocketHandler {
   }
 
   void _mapper(Uint8List bytes) {
-    Logger.instance.log('New packet received');
+    Logger.instance.log('New packet received: ${bytes.lengthInBytes}');
     if (_handleBytes(bytes)) return;
     final commands = _compileIncommingMessage(bytes);
     if (commands == null) return;
@@ -83,7 +83,7 @@ final class SocketHandler {
     }
   }
 
-  bool _handleBytes(List<int> bytes) {
+  bool _handleBytes(Uint8List bytes) {
     if (!_isFile) return false;
     _bytes.addAll(bytes);
     if (_bytes.length >= _fileLength) {
@@ -98,7 +98,7 @@ final class SocketHandler {
     return true;
   }
 
-  List<String>? _compileIncommingMessage(List<int> bytes) {
+  List<String>? _compileIncommingMessage(Uint8List bytes) {
     try {
       _messages.addAll(bytes);
       var data = utf8.decode(_messages.toList());
@@ -111,7 +111,7 @@ final class SocketHandler {
         commands.add(command);
       }
       _messages.clear();
-      Logger.instance.log('Command received: $data');
+      Logger.instance.log('Commands received: ${commands.join(', ')}');
       return commands;
     } catch (error) {
       Logger.instance.log(error);
